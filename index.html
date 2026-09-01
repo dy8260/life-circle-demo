@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>15 分钟便民生活圈 · 智能体检可视化系统</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="基于百度地图 JS API 的 15 分钟便民生活圈智能体检可视化系统。" />
+<!-- 用内联 1×1 SVG 兼做 favicon，避免浏览器默认请求 /favicon.ico 产生 404 -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%233a7afe'/><circle cx='32' cy='32' r='14' fill='none' stroke='white' stroke-width='3'/></svg>" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- 顶部状态条 -->
+<header class="topbar">
+  <div class="brand">
+    <div class="logo-pulse"><span></span><span></span><span></span></div>
+    <div class="brand-text">
+      <h1>15 分钟便民生活圈</h1>
+      <small>智能体检可视化系统</small>
+    </div>
+  </div>
+
+  <!-- 顶部地址栏 A（主地址） -->
+  <div class="addr-bar addr-bar-primary">
+    <span class="addr-tag">A</span>
+    <select id="provSelect" class="addr-prov" title="省份" aria-label="省份">
+      <option value="" disabled selected hidden>——省——</option>
+    </select>
+    <select id="citySelect" class="addr-city" title="城市" aria-label="城市" disabled>
+      <option value="" disabled selected hidden>——市——</option>
+    </select>
+    <select id="areaSelect" class="addr-area" title="区/县" aria-label="区/县" disabled>
+      <option value="" disabled selected hidden>——区——</option>
+    </select>
+    <input id="addrInput" class="addr-detail" type="text" placeholder="详细地址（小区/街道/社区，如：望京 SOHO）" />
+    <span class="addr-actions">
+      <button id="addrHint" type="button" class="hint-btn" title="点击查看地址输入说明" aria-label="地址输入提示">i</button>
+      <button id="btnGo"     class="btn primary">开始体检</button>
+      <button id="btnCompare" class="btn ghost" title="添加对比地址 · 并排体检">🆚 对比模式</button>
+      <button id="btnReset"  class="btn ghost">重置</button>
+    </span>
+  </div>
+
+  <!-- 顶部地址栏 B（对比地址，默认隐藏，点击 🆚 切换） -->
+  <div class="addr-bar addr-bar-secondary" id="addrBarB" hidden>
+    <span class="addr-tag tag-b">B</span>
+    <select id="provSelectB" class="addr-prov" title="省份（对比地址）" aria-label="省份（对比地址）">
+      <option value="" disabled selected hidden>——省——</option>
+    </select>
+    <select id="citySelectB" class="addr-city" title="城市（对比地址）" aria-label="城市（对比地址）" disabled>
+      <option value="" disabled selected hidden>——市——</option>
+    </select>
+    <select id="areaSelectB" class="addr-area" title="区/县（对比地址）" aria-label="区/县（对比地址）" disabled>
+      <option value="" disabled selected hidden>——区——</option>
+    </select>
+    <input id="addrInputB" class="addr-detail" type="text" placeholder="详细地址（对比地址）" />
+    <span class="addr-actions">
+      <button id="btnCloseB" type="button" class="hint-btn" title="关闭对比地址">×</button>
+      <button id="btnRunCompare" class="btn primary" disabled>🔬 开始对比</button>
+    </span>
+  </div>
+
+  <!-- 实时 HUD：替代原先静态 badge；显示鼠标坐标/缩放/路网覆盖/版本号（开发者属性） -->
+  <div class="hud" id="hud" title="悬停地图查看实时坐标；点击收起">
+    <span class="hud-row"><b>版本</b><i>v3.1.0</i></span>
+    <span class="hud-row"><b>缩放</b><i id="hudZoom">14</i></span>
+    <span class="hud-row"><b>经度</b><i id="hudLng">--.----</i></span>
+    <span class="hud-row"><b>纬度</b><i id="hudLat">--.----</i></span>
+    <span class="hud-row"><b>路网</b><i id="hudPath">--</i></span>
+  </div>
+</header>
+
+<!-- 主区域：左地图 + 右数据看板 + 底报告 -->
+<main class="layout">
+
+  <!-- 地图区 -->
+  <section class="map-panel">
+    <div id="map"></div>
+
+    <!-- 趣味小部件：实时时间 + 当前城市天气（替代原先的工具按钮列） -->
+    <div class="info-widgets">
+      <div class="widget widget-time" title="实时时间">
+        <div class="time-hms"><span id="timeHH">--</span><i>:</i><span id="timeMM">--</span><i>:</i><span id="timeSS">--</span></div>
+        <div class="time-date"><span id="timeDate">---- / -- / --</span><span id="timeWeek">星期-</span></div>
+      </div>
+      <div class="widget widget-weather" title="当前城市实时天气（Open-Meteo）">
+        <div class="wx-icon" id="wxIcon">☀️</div>
+        <div class="wx-body">
+          <div class="wx-city" id="wxCity">北京市</div>
+          <div class="wx-temp"><b id="wxTemp">--</b><i>°C</i><span id="wxDesc">--</span></div>
+          <div class="wx-extra">
+            <span>💧 <em id="wxHum">--</em>%</span>
+            <span>🍃 <em id="wxWind">--</em></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图例 -->
+    <div class="legend">
+      <h4>配套图例</h4>
+      <ul id="legendList"></ul>
+    </div>
+
+    <!-- 进度提示 -->
+    <div id="loader" class="loader hidden">
+      <div class="spinner"></div>
+      <div class="loader-text" id="loaderText">处理中...</div>
+    </div>
+  </section>
+
+  <!-- 右侧数据看板 -->
+  <aside class="side">
+
+    <div class="card score-card">
+      <div class="card-header">
+        <h3>综合生活圈评分</h3>
+        <span class="card-tag" id="scoreTag">未体检</span>
+      </div>
+      <div class="score-body">
+        <div class="score-ring">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" class="bg"/>
+            <circle cx="60" cy="60" r="52" class="fg" id="scoreArc"
+                    stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+          </svg>
+          <div class="score-num"><span id="scoreNum">--</span><i>/100</i></div>
+        </div>
+        <div class="score-meta">
+          <div class="meta-row"><span>中心点</span><b id="metaCenter">—</b></div>
+          <div class="meta-row"><span>可达面积</span><b id="metaArea">— km²</b></div>
+          <div class="meta-row"><span>步行速度</span><b id="metaSpeed">80 m/min</b></div>
+          <div class="meta-row"><span>目标时长</span><b>15 分钟</b></div>
+          <div class="meta-row"><span>数据来源</span><b>百度真实路网</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>配套统计</h3><span class="card-tag" id="poiTotalTag">0 项</span></div>
+      <div id="poiCountList" class="poi-count"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>分类雷达</h3><span class="card-tag">对比理想值</span></div>
+      <div id="radarChart" class="chart"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>分类计数</h3><span class="card-tag">条形图</span></div>
+      <div id="barChart" class="chart"></div>
+    </div>
+
+  </aside>
+
+  <!-- 底部体检报告 -->
+  <section class="card report-card">
+    <div class="report-tabs" id="reportTabs">
+      <button class="tab active" data-tab="single">📍 当前地址体检报告</button>
+      <button class="tab" data-tab="compare" id="tabCompare" disabled>🆚 对比报告</button>
+    </div>
+    <div class="card-header">
+      <h3 id="reportTitle">15 分钟生活圈 · 体检报告</h3>
+      <div class="report-actions">
+        <span id="reportAddr" class="muted">尚未体检</span>
+        <button id="btnReportCopy"  class="btn small ghost">📋 复制</button>
+        <button id="btnReportPrint" class="btn small ghost">🖨️ 打印</button>
+      </div>
+    </div>
+    <div id="reportSingle" class="report-content">
+      <div class="empty-tip">
+        <p>👋 请在上方输入小区 / 街道 / 社区地址，例如：</p>
+        <ul>
+          <li>北京市朝阳区望京 SOHO</li>
+          <li>上海市浦东新区陆家嘴</li>
+          <li>广州市天河区珠江新城</li>
+          <li>深圳市南山区科技园</li>
+        </ul>
+        <p class="muted">系统会基于<strong>真实步行路网</strong>绘制 15 分钟可达圈，并自动统计医院、药店、商超、学校、公交站点五大类民生配套，最后生成体检报告。</p>
+      </div>
+    </div>
+    <div id="reportCompare" class="report-content" hidden></div>
+  </section>
+</main>
+
+<!-- 地址输入提示气泡（点击 ⓘ 后显示） -->
+<div id="addrHintPopover" class="addr-hint-popover" hidden>
+  <div class="hint-title">📍 地址输入说明</div>
+  <p>使用<strong>三级联动下拉</strong>选择地址区域，再输入详细地点：</p>
+  <table class="hint-format">
+    <tr><td class="hint-tag tag-prov">省</td><td>从下拉选择省份 / 直辖市（如：北京市 / 广东省）</td></tr>
+    <tr><td class="hint-tag tag-city">市</td><td>选择该省下的城市（随省份联动）</td></tr>
+    <tr><td class="hint-tag tag-area">区</td><td>选择该市下的区 / 区（部分城市列出主城区，无区可空选）</td></tr>
+    <tr><td class="hint-tag tag-detail">详细</td><td>小区名 / 街道 / 社区 / 标志性建筑</td></tr>
+  </table>
+  <p class="hint-examples"><b>推荐示例：</b></p>
+  <ul class="hint-list">
+    <li>✅ 北京市 · 北京市 · 朝阳区 · <b>望京 SOHO</b></li>
+    <li>✅ 上海市 · 上海市 · 浦东新区 · <b>陆家嘴环路 1000 号</b></li>
+    <li>✅ 广东省 · 广州市 · 天河区 · <b>珠江新城冼村路</b></li>
+    <li>✅ 广东省 · 深圳市 · 南山区 · <b>科技园 1 号</b></li>
+  </ul>
+  <p class="hint-tip">💡 <b>省/市/区</b> 直接下拉选，<b>详细地址</b> 自由键入。三级联动覆盖国内 31 省 + 港澳台，约 350 个主要城市的核心市区。越精确的地址 → 越准的等时圈。</p>
+</div>
+
+<!-- 调试触发器：v3.3.0 已按用户要求删除右下角齿轮按钮 + 诊断面板。
+     保留极简的 __diag 控制台入口（任何模块都可调用，无副作用），便于在 devtools 控制台排障。 -->
+<script>
+(function () {
+    'use strict';
+    var _errs = [];
+    function show(msg, kind) {
+        if (kind === 'error' && (msg === 'Script error.' || !msg)) return;
+        _errs.push({ msg: msg, kind: kind || 'log', t: Date.now() });
+        if (_errs.length > 200) _errs.splice(0, _errs.length - 200);
+        if (typeof console !== 'undefined') {
+            var tag = '[' + (kind || 'log').toUpperCase() + ']';
+            if (kind === 'error') console.error(tag, msg);
+            else if (kind === 'warn') console.warn(tag, msg);
+            else console.log(tag, msg);
+        }
+    }
+    window.__diag = show;
+    window.addEventListener('error', function (e) {
+        if (e.message === 'Script error.' || (!e.filename && !e.lineno)) return;
+        show((e.filename || '') + ':' + (e.lineno || 0) + ' → ' + (e.message || 'unknown'), 'error');
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        var r = e.reason || {};
+        var msg = (r && r.message) || (r && r.toString && r.toString()) || 'unknown';
+        if (msg === 'Script error.' || !msg) return;
+        show('Promise rejected: ' + msg, 'error');
+    });
+})();
+</script>
+
+<!-- 2. 百度地图 GL JS API（必需，联网）。callback=window.__bmapReady 在脚本中作为 JSONP 函数名调用 -->
+<script src="https://api.map.baidu.com/api?type=webgl&v=3.0&ak=4G0d2gbkyXWZRLIWovEsQg3ZmnIvgr49&callback=__bmapReadyCallback"
+        onerror="window.__diag && window.__diag('❌ 百度地图 API 脚本下载失败（network/AK/Referer）', 'error')"></script>
+<script>
+    // 兼容官方 callback 用法（也兼容万一官方返回一个非预期脚本时）
+    window.__bmapReadyCallback = window.__bmapReadyCallback || function () {};
+    // 我们在 app.js 里把全局 __bmapReady 定义为 init —— 这里做一个软链
+    Object.defineProperty(window, '__bmapReady', { set: function (fn) { window.__bmapReadyCallback = fn; }, get: function () { return window.__bmapReadyCallback; } });
+</script>
+
+<!-- 图表与热力图：CDN 优先，失败自动回退到本地 lib/（断网也能跑） -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"
+        onerror="window.__diag && window.__diag('⚠️ ECharts CDN 失败，自动回退 lib/echarts.min.js','warn')"></script>
+<script>window.echarts || document.write('<script src="lib/echarts.min.js"><\/script>');</script>
+<script src="https://cdn.jsdelivr.net/npm/simpleheat@0.0.1/simpleheat.min.js"
+        onerror="window.__diag && window.__diag('⚠️ simpleheat CDN 失败，自动回退 lib/simpleheat.min.js','warn')"></script>
+<script>window.simpleheat || document.write('<script src="lib/simpleheat.min.js"><\/script>');</script>
+
+<!-- 本项目脚本（顺序敏感） -->
+<script src="js/config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/region-data.js"></script>
+<script src="js/region.js"></script>
+<script src="js/heatmap.js"></script>
+<script src="js/isochrone.js"></script>
+<script src="js/poi.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/report.js"></script>
+<script src="js/compare.js"></script>
+<script src="js/time-weather.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
