@@ -37,7 +37,7 @@
 项目已内置一个零依赖 Node 静态服务 `serve.js`：
 
 ```bash
-cd D:\AI\BaiDu
+cd 项目根目录
 node serve.js
 # 浏览器访问 http://127.0.0.1:8080
 ```
@@ -62,7 +62,7 @@ python -m http.server 8080 # Python
 ## 四、目录结构
 
 ```
-D:\AI\BaiDu\
+（项目根目录）
 ├── index.html        # 主入口
 ├── css\
 │   └── style.css     # 深色大屏 / 玻璃拟态
@@ -111,16 +111,13 @@ node test/smoke-test.js
 
 ```bash
 # 前置：装 puppeteer-core（puppeteer 体积太大，core 是无头控制核心，约 5MB）
-cd "C:/Users/dy/.workbuddy/binaries/node/workspace"
-"C:/Users/dy/.workbuddy/binaries/node/versions/22.22.2-2/node.exe" "C:/Users/dy/.workbuddy/binaries/node/versions/22.22.2-2/node_modules/npm/bin/npm-cli.js" install puppeteer-core
+npm install puppeteer-core
 
 # 启动 http 服务（如未跑）
-"C:/Users/dy/.workbuddy/binaries/node/versions/22.22.2-2/node.exe" "D:/AI/BaiDu/serve.js" &
+node serve.js &
 
 # 跑测试
-NODE_PATH=C:/Users/dy/.workbuddy/binaries/node/workspace/node_modules \
-  "C:/Users/dy/.workbuddy/binaries/node/versions/22.22.2-2/node.exe" \
-  "D:/AI/BaiDu/test/verify-e2e.js"
+node test/verify-e2e.js
 ```
 
 测试脚本会：
@@ -128,7 +125,7 @@ NODE_PATH=C:/Users/dy/.workbuddy/binaries/node/workspace/node_modules \
 2. 等 runAnalysis 全部跑完（等 POI 数量 > 0）
 3. 抓取 6 个核心数据点（metaArea/scoreNum/scoreTag/poiTotal 等）
 4. **点热力图按钮**，验证 canvas 像素非零占比（>30% 视为成功）
-5. 截图到当前目录（默认 `C:\Users\dy\demo-verify.png`）
+5. 截图保存到当前目录（默认 `demo-verify.png`）
 
 实测数据样本（北京市朝阳区望京 SOHO，真实时钟 ~4s）：
 
