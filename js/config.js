@@ -7,8 +7,6 @@
 
     // 浏览器端 AK（用户在百度地图开放平台创建的应用，「浏览器端」类型）
     global.BMAP_AK = '4G0d2gbkyXWZRLIWovEsQg3ZmnIvgr49';
-    // 服务端 AK 仅作为记录，本 Demo 全程纯前端无需服务端 AK
-    global.BMAP_SERVER_AK = 'wvYeDQStRR8Q5SsB0LYjasbuvf42QOkA';
 
     // 主题色（深色大屏风格，玻璃拟态）
     global.THEME = {
