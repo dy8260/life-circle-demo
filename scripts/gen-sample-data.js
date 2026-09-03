@@ -1,17 +1,17 @@
 /**
- * 生成「离线示例数据」sample-community.json
+ * 生成「仿真示例数据」sample-community.json
  * ----------------------------------------------------------------
- * 用途：让演示模式（无百度 AK / 离线 / clone 后）能直接渲染完整报告。
- * 这是一组「贴合真实形态」的仿真数据，非实时抓取。⚠️ 注意：运行本脚本会用
+ * 用途：生成一组「贴合真实形态」的仿真数据，可用于本地开发调试或临时替换示例快照。
+ * 这是仿真数据，非实时抓取。⚠️ 注意：运行本脚本会用
  * 陆家嘴仿真数据覆盖 data/sample-community.json，从而冲掉已内置的真实北京望京数据，
- * 赛前请勿误跑；真实数据现已内置，导出演示数据按钮已关闭（如需重导出见 data/README.md）。
+ * 赛前请勿误跑；正式参赛以真实体检导出的 sample-community.json 为准（见 data/README.md）。
  *
  * 运行：node scripts/gen-sample-data.js
  * 输出：data/sample-community.json
  *
  * 设计原则：
  *   - 数据结构 100% 对齐真实运行产物（center / samples / area / resultByKey / gapResult），
- *     这样演示模式与真实模式走完全相同的渲染链（Dashboard / Report / Canvas）。
+ *     可直接作为 gen-report-from-snapshot.js 的输入重算报告。
  *   - 用固定种子（LCG）保证可复现：每次生成结果一致，便于审阅与 diff。
  *   - POI 数量参考 config.js 的 POI_THRESHOLD，让体检分数落在合理区间（充足/达标/缺失混合）。
  */

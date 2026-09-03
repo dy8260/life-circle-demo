@@ -58,26 +58,24 @@ python -m http.server 8080 # Python
 
 > ⚠️ 把浏览器端 AK 暴露在前端是 demo 场景的常规做法，正式上线应在百度开放平台配置 **Referer 白名单**（如 `*.your-domain.com/*`）。
 
-### 方式 D：演示模式（离线示例数据，无需 AK）
+### 示例数据（满足「配置好示例数据」要求）
 
-clone 后若**未配置百度 AK**（源码里只有占位符 `__BMAP_AK__`），打开首页会**自动进入「演示模式」**：
-加载 `data/sample-community.json`（一份贴合真实的仿真快照），直接渲染完整看板 / 体检报告，
-地图区改用 `js/demo-render.js` 的 **Canvas** 离线绘制等时圈 + POI + 服务盲区，**全程不依赖百度、不联网**，
-评委/评审零门槛即可看到完整可运行效果（满足「配置好示例数据、保证快速跑通演示」要求）。
+仓库内置一份**真实体检导出快照** `data/sample-community.json`（北京·望京，评分 97/100，详见 `docs/真实对比测试报告.md`），
+由 `scripts/gen-report-from-snapshot.js` 读取并生成对比测试报告。
+
+> ⚠️ 本应用**基于百度地图开放能力在线运行**（地理编码 / POI 检索 / 路径规划），需要有效的浏览器端 AK。
+> 源码仓库中 AK 为脱敏占位符 `__BMAP_AK__`，**部署时由 CI（`.github/workflows/deploy.yml`）注入真实 Key**，
+> 评审使用部署后的在线链接即可，无需自行配置 AK。
 
 ```bash
-# 必须用 HTTP 方式打开（file:// 会因 fetch 被浏览器拦截而加载失败）
+# 本地预览（需先在本目录放 config.local.js 填好真 AK，或用已注入 AK 的线上链接）
 python -m http.server 8080
 # 浏览器访问
-http://localhost:8080/          # 无 AK 自动演示
-http://localhost:8080/?demo=1   # 强制演示模式（即使带 AK 也走离线示例）
+http://localhost:8080/          # 输入社区地址 → 开始体检（基于百度真实路网）
 ```
 
-离线示例数据（当前已内置**真实体检数据：北京·望京，评分 97/100**，详见 `docs/真实对比测试报告.md`），
-开箱即用、无需导出替换。导出演示数据按钮已关闭——真实数据已随仓库内置；如需更换为其他社区数据，
-请用 `data/README.md` 中「如何替换为真实数据」的步骤操作。
-
-> 仿真数据由 `scripts/gen-sample-data.js`（固定随机种子，可复现）生成；详见 `data/README.md`。
+如需更换示例社区，用真实 AK 跑一次体检后，将快照覆盖到 `data/sample-community.json` 并重新执行
+`node scripts/gen-report-from-snapshot.js` 即可刷新报告（替换步骤详见 `data/README.md`）。
 
 ---
 

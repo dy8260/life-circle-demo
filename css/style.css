@@ -1189,30 +1189,6 @@ body::before {
 /* [hidden] 兜底：.gc-grid 等 display:grid 会覆盖 [hidden] 的默认 display:none */
 #gapCompareBody[hidden] { display: none !important; }
 
-/* ============ 演示模式（离线示例数据） ============ */
-.demo-banner {
-    margin: 0;
-    padding: 8px 16px;
-    background: linear-gradient(90deg, rgba(58,122,254,0.18), rgba(0,214,143,0.12));
-    border-bottom: 1px solid rgba(120,180,255,0.25);
-    color: #cfe0ff;
-    font-size: 12.5px;
-    text-align: center;
-    letter-spacing: 0.2px;
-}
-.demo-banner b { color: #fff; }
-
-/* Canvas 离线地图：铺满地图面板，不拦截上层控件 */
-.demo-canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 9999;            /* 置于百度地图 pane 之上（演示模式不需要真实地图） */
-    pointer-events: none;
-    display: block;
-}
-
 @media (max-width: 980px) {
     .gc-grid { gap: 8px; }
     .gc-line { line-height: 1.7; }

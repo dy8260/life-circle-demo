@@ -226,7 +226,7 @@
         document.getElementById('btnReportCopy').addEventListener('click', copyReport);
         document.getElementById('btnReportPrint').addEventListener('click', printReport);
 
-        // 导出演示数据按钮已关闭（真实数据已内置为离线示例，无需导出替换）
+        // 导出演示数据按钮已移除（示例数据改由构建期脚本 gen-report-from-snapshot.js 处理）
 
         // 服务盲区点位图层开关
         const btnGap = document.getElementById('btnGapToggle');
@@ -636,17 +636,7 @@
             // 6. 报告
             Report.build(center, resultByKey, ir.area, score, missedCategories, breakdown, gapResult);
 
-            // 6.1 捕获快照（导出按钮已从界面移除，但保留控制台导出能力：真实体检后可在控制台调用 DemoMode.export()）
-            if (global.DemoMode) {
-                const snapCenter = { lng: center.lng, lat: center.lat, address: addr };
-                global.DemoMode.capture({
-                    center: snapCenter,
-                    samples: currentSamples,
-                    area: ir.area,
-                    resultByKey: resultByKey,
-                    gapResult: gapResult
-                });
-            }
+            // 6.1 体检快照由构建期脚本 gen-report-from-snapshot.js 读取仓库内置 sample-community.json 生成报告（运行时不再捕获）
 
             // 热力图数据准备
             Heatmap.setData(POI.collectHeatmapData(resultByKey, samples));
@@ -843,94 +833,9 @@
         setTimeout(() => div.remove(), 2200);
     }
 
-    /* ===================== 演示模式（离线示例数据） =====================
-     * 触发：① clone 后无百度 AK（BMAP_AK 仍为占位符）；② URL 带 ?demo=1
-     * 行为：加载 data/sample-community.json，直接驱动看板/报告渲染（与真实模式同一条链），
-     *       地图区改由 js/demo-render.js 用 Canvas 画（不依赖百度、不联网）。
-     */
-    const DemoMode = {
-        shouldRun: function () {
-            try {
-                if (new URLSearchParams(location.search).get('demo') === '1') return true;
-            } catch (e) {}
-            const ak = (typeof global.BMAP_AK === 'string' && global.BMAP_AK) ? global.BMAP_AK : '__BMAP_AK__';
-            return ak === '__BMAP_AK__';
-        },
+    /** 暴露给百度地图 API 回调：地图脚本加载完成后触发 init（在线模式） */
+    global.__bmapReady = init;
 
-        start: function () {
-            showDemoBanner();
-            fetch('data/sample-community.json')
-                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function (snap) { DemoMode.renderSnapshot(snap); })
-                .catch(function (err) {
-                    toast('演示数据加载失败：请用本地服务器打开（如 node serve.js），不要直接双击 file://。' + err.message);
-                });
-        },
-
-        renderSnapshot: function (snap) {
-            if (!snap || !snap.resultByKey) { toast('演示数据格式异常'); return; }
-            const center = snap.center || {};
-            const area = snap.area || 0;
-            const resultByKey = snap.resultByKey || {};
-            const gapResult = snap.gapResult || null;
-
-            if (global.Dashboard && Dashboard.ensureCharts && typeof echarts !== 'undefined') {
-                Dashboard.ensureCharts();
-            }
-            const sc = Dashboard.calcScore(resultByKey, area, center);
-            Dashboard.setArea(area);
-            Dashboard.setCenter(center.address || (center.lng + ',' + center.lat));
-            Dashboard.renderPoiCount(resultByKey);
-            if (typeof echarts !== 'undefined') Dashboard.renderCharts(resultByKey);
-            Dashboard.setScore(sc.score, Util.scoreLevel(sc.score).text);
-            Dashboard.renderGap(gapResult);
-            Report.build(center, resultByKey, area, sc.score, sc.missedCategories, sc.breakdown, gapResult);
-
-            const mapEl = document.getElementById('map');
-            if (mapEl && global.DemoRender) {
-                const cv = DemoRender.mount(mapEl);
-                DemoRender.render(cv, snap);
-                window.addEventListener('resize', function () { DemoRender.refresh(cv); });
-            }
-        },
-
-        /** 真实体检完成后捕获快照，供离线示例数据下载（导出按钮已关闭，仅保留控制台 DemoMode.export() 调用） */
-        capture: function (snap) {
-            global.__snapshot = snap;
-            const b = document.getElementById('btnExportDemo');
-            if (b) b.hidden = false;
-        },
-
-        /** 下载当前快照为 sample-community.json */
-        export: function () {
-            const snap = global.__snapshot;
-            if (!snap) { toast('暂无可导出的数据，请先完成一次体检'); return; }
-            const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'sample-community.json';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-            toast('已导出 sample-community.json，覆盖到 data/ 目录即可作为离线示例数据');
-        }
-    };
-
-    function showDemoBanner() {
-        const b = document.getElementById('demoBanner');
-        if (b) b.hidden = false;
-    }
-
-    global.DemoMode = DemoMode;
-
-    // 演示模式自启（无 AK / ?demo=1）—— 真实 AK 下 shouldRun 返回 false，不受影响
-    if (DemoMode.shouldRun()) {
-        DemoMode.start();
-    }
-
-    /** 暴露给百度 API 回调（演示模式下不注册，避免占位符 AK 触发 init/真实体检） */
-    if (!DemoMode.shouldRun()) {
-        global.__bmapReady = init;
-    }
     // 对比模式需要的可复用体检工具
     global.app = {
         runOneStandalone: (addr, onProgress) => runOneStandalone(addr, onProgress)
