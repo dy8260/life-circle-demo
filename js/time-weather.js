@@ -201,6 +201,8 @@
     }
 
     async function updateWeather(cityName) {
+        // 演示模式不联网获取天气
+        if (global.DemoMode && global.DemoMode.shouldRun && global.DemoMode.shouldRun()) return;
         if (_wxInflight) { try { _wxInflight.abort(); } catch (_) {} }
         var ctrl = ('AbortController' in global) ? new AbortController() : null;
         _wxInflight = ctrl;
@@ -233,6 +235,12 @@
     }
 
     function startWeather() {
+        // 演示模式：不发起天气联网请求，避免断网时卡顿/报错
+        if (global.DemoMode && global.DemoMode.shouldRun && global.DemoMode.shouldRun()) {
+            var dEl = document.getElementById('wxDesc');
+            if (dEl) dEl.textContent = '演示模式·天气离线';
+            return;
+        }
         var city = document.getElementById('citySelect');
         if (city) city.addEventListener('change', function () { updateWeather(city.value); });
         updateWeather(city ? city.value : '北京市');

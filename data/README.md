@@ -32,14 +32,18 @@
 gapAreaM2 / poiCount / gapPoints / patches / bottleneckCount / missingRate /
 centerStatus` 等用于看板与报告的字段。
 
-## 如何替换为真实数据（推荐，赛前必做）
+## 当前数据说明
 
-线上演示（带百度 AK）跑通一次后，点界面右上角 **「⬇ 导出演示数据」**，
-浏览器会下载一份 `sample-community.json`（真实抓取结果）。把它覆盖到本目录即可：
+`data/sample-community.json` 当前已内置**真实体检数据（北京·望京，评分 97/100）**，
+由「带百度 AK 真实体检」导出生成，开箱即用。导出演示数据按钮已关闭，无需手动导出。
 
-```
-data/sample-community.json   ← 替换为真实导出
-```
+## 如需更换为其他社区数据
+
+1. 配置 `config.local.js` 填入浏览器端 AK，或用已注入 AK 的线上 GitHub Pages；
+2. 真实体检跑通后，在浏览器控制台执行 `DemoMode.export()` 即可下载本次快照
+   （导出按钮已从界面移除，但 `capture` 仍会记录快照，控制台调用可直接导出）；
+3. 将下载的 `sample-community.json` 覆盖本目录，重新打开即加载新数据；
+4. 运行 `node scripts/gen-report-from-snapshot.js` 一键刷新 `docs/真实对比测试报告.md` 数字。
 
 重新打开页面（或 `?demo=1`）即加载真实数据。「真实对比测试报告」
 （`docs/真实对比测试报告.md`）也应基于这份真实快照重新核算数字。
