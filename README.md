@@ -40,13 +40,15 @@
 
 ### 方式 B（推荐，便于部署 / 跨设备访问）：本地 HTTP 服务
 
-也可使用本地的零依赖脚本 `serve.js`（非仓库文件，需自行准备）：
+仓库内置零依赖脚本 `serve.js`（只用 Node 内置 `http` 模块，**无需 `npm install`**）：
 
 ```bash
 cd 项目根目录
 node serve.js
 # 浏览器访问 http://127.0.0.1:8080
 ```
+
+> 本地运行仍需提供有效 AK：在根目录放 `config.local.js` 设 `window.BMAP_AK_OVERRIDE = '你的浏览器端百度AK'`（与「方式 A 双击」相同机制）。未配 AK 时地图无法加载。
 
 也可用其他工具：
 ```bash
