@@ -226,11 +226,7 @@
         document.getElementById('btnReportCopy').addEventListener('click', copyReport);
         document.getElementById('btnReportPrint').addEventListener('click', printReport);
 
-        // 导出演示数据（仅在真实体检完成后可用，见 runAnalysis 的 DemoMode.capture）
-        const btnExportDemo = document.getElementById('btnExportDemo');
-        if (btnExportDemo) btnExportDemo.addEventListener('click', function () {
-            if (global.DemoMode) global.DemoMode.export();
-        });
+        // 导出演示数据按钮已关闭（真实数据已内置为离线示例，无需导出替换）
 
         // 服务盲区点位图层开关
         const btnGap = document.getElementById('btnGapToggle');
@@ -640,10 +636,11 @@
             // 6. 报告
             Report.build(center, resultByKey, ir.area, score, missedCategories, breakdown, gapResult);
 
-            // 6.1 捕获快照，供「导出演示数据」一键生成离线示例数据（data/sample-community.json）
+            // 6.1 捕获快照（导出按钮已从界面移除，但保留控制台导出能力：真实体检后可在控制台调用 DemoMode.export()）
             if (global.DemoMode) {
+                const snapCenter = { lng: center.lng, lat: center.lat, address: addr };
                 global.DemoMode.capture({
-                    center: currentCenter,
+                    center: snapCenter,
                     samples: currentSamples,
                     area: ir.area,
                     resultByKey: resultByKey,
@@ -897,7 +894,7 @@
             }
         },
 
-        /** 真实体检完成后捕获快照，供「导出演示数据」下载 */
+        /** 真实体检完成后捕获快照，供离线示例数据下载（导出按钮已关闭，仅保留控制台 DemoMode.export() 调用） */
         capture: function (snap) {
             global.__snapshot = snap;
             const b = document.getElementById('btnExportDemo');
