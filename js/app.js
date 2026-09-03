@@ -613,7 +613,7 @@
                 resultByKey = await POI.fetchAll(center, samples, (p, m) => showLoader(true, m));
                 POI.render(map, resultByKey, ir.polygon);
 
-            // 4. 服务盲区识别（赛题任务书 2.3 核心指标）
+            // 4. 服务盲区识别（核心指标）
             showLoader(true, '识别服务盲区点位...');
             const gapResult = await GapFinder.analyze(center, samples, resultByKey, (p, m) => showLoader(true, m));
 
