@@ -35,7 +35,7 @@
 
 ### 方式 B（推荐，便于部署 / 跨设备访问）：本地 HTTP 服务
 
-项目已内置一个零依赖 Node 静态服务 `serve.js`：
+也可使用本地的零依赖脚本 `serve.js`（非仓库文件，需自行准备）：
 
 ```bash
 cd 项目根目录
@@ -83,7 +83,6 @@ python -m http.server 8080 # Python
 ├── lib\
 │   ├── echarts.min.js     # 本地副本（CDN 失败时自动回退）
 │   └── simpleheat.min.js  # 本地副本
-├── serve.js          # 零依赖 Node 静态服务
 └── README.md
 ```
 
@@ -117,7 +116,7 @@ node tests/gap-smoke.js
 npm install puppeteer-core
 
 # 启动 http 服务（如未跑）
-node serve.js &
+npx serve -p 8080 &
 
 # 跑测试
 node test/verify-e2e.js
