@@ -3,7 +3,7 @@
  *
  * 浏览器端 AK 获取优先级（实现"源码不含真 key"的脱敏）：
  *   1) 本地开发：config.local.js（已被 .gitignore 忽略，不提交）设置 window.BMAP_AK_OVERRIDE
- *   2) 部署时：CI（GitHub Actions）把下方占位符 __BMAP_AK__ 替换为真实 key（存于仓库 Secret，不进源码）
+ *   2) 部署时：CI（GitHub Actions）把下方占位符注入为真实 key（存于仓库 Secret，不进源码）
  *   3) 兜底占位符（仅用于代码脱敏；此时地图无法加载，需配好 key 才可用）
  * 请在百度开放平台为浏览器端应用配置 Referer 白名单 = dy8260.github.io / localhost
  */
@@ -11,7 +11,7 @@
     'use strict';
 
     // 浏览器端 AK（用户在百度地图开放平台创建的应用，「浏览器端」类型）
-    // 本地用 config.local.js 覆盖；部署由 CI 注入；仓库源码只保留占位符 __BMAP_AK__
+    // 本地用 config.local.js 覆盖；部署由 CI 注入；仓库源码只保留占位符
     var BMAP_AK_VALUE = (typeof global.BMAP_AK_OVERRIDE !== 'undefined' && global.BMAP_AK_OVERRIDE)
         ? global.BMAP_AK_OVERRIDE
         : '__BMAP_AK__';
