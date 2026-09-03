@@ -18,5 +18,15 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# 本地开发 AK 覆盖（含真 key，绝不提交/推送）
+config.local.js
+
+# 含明文 token / 私人路径的文件，禁止提交与推送
+相关资料.txt
+HOWTO-开发流程与回滚.md
+
+# 比赛分析类文档，不纳入版本库
+docs/
+
 # 注意：以下「必须保留」请不要加入忽略
 #   index.html  css/  js/  lib/  README.md

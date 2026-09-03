@@ -346,6 +346,13 @@ body::before {
 }
 .btn.ghost:hover { color: var(--text); border-color: var(--primary-glow); }
 .btn.small { height: 30px; padding: 0 12px; font-size: 12px; }
+.btn.tiny { height: 22px; padding: 0 9px; font-size: 11px; border-radius: 6px; }
+.btn.tiny:disabled { opacity: .4; cursor: not-allowed; }
+.btn.tiny.active {
+    color: var(--text);
+    border-color: var(--primary-glow);
+    background: rgba(58,122,254,0.22);
+}
 
 /* ============== LAYOUT ============== */
 .layout {
@@ -355,7 +362,8 @@ body::before {
     grid-template-rows: 1fr auto;
     gap: 14px;
     padding: 14px;
-    height: calc(100vh - 70px);
+    /* 顶栏高度会变（对比模式下多出地址 B 行），由 app.js 量出真实高度写入 --header-h */
+    height: calc(100vh - var(--header-h, 70px));
 }
 .map-panel {
     grid-column: 1; grid-row: 1;
@@ -627,9 +635,83 @@ body::before {
 .status.low { background: rgba(255,181,71,0.15); color: var(--warn); }
 .status.bad { background: rgba(255,84,112,0.15); color: var(--danger); }
 
-/* Charts —— 紧凑固定高度 */
-.chart { width: 100%; height: 170px; }
-#barChart { height: 150px; }
+/* ============== 服务盲区卡片 ============== */
+.gap-body { padding: 10px 14px 12px; }
+.gap-empty { margin: 0; font-size: 12px; line-height: 1.7; }
+.gap-empty b { color: var(--text); }
+
+/* 顶部三格指标 */
+.gap-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.gap-summary .gs-cell {
+    background: rgba(91,155,255,0.07);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 7px 6px;
+    text-align: center;
+}
+.gap-summary .gs-val { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.gap-summary .gs-val small { font-size: 10px; font-weight: 400; color: var(--text-sub); margin-left: 1px; }
+.gap-summary .gs-lab { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
+
+/* 盲区占比条 */
+.gap-ratio-row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: var(--text-sub); margin-bottom: 5px;
+}
+.gap-ratio-row b { color: var(--text); }
+.gap-bar { height: 6px; border-radius: 3px; background: rgba(120,180,255,0.12); overflow: hidden; display: flex; }
+.gap-bar > i { display: block; height: 100%; }
+.gap-bar .gb-severe { background: var(--danger); }
+.gap-bar .gb-mild   { background: var(--warn); }
+.gap-legend-inline {
+    display: flex; gap: 12px; font-size: 10px; color: var(--text-sub);
+    margin-top: 6px; align-items: center;
+}
+.gap-legend-inline span { display: flex; align-items: center; gap: 4px; }
+.gap-legend-inline i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* 各类缺失率 */
+.gap-keys { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.gap-key-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.gap-key-row .gk-name { width: 42px; color: var(--text-sub); flex-shrink: 0; }
+.gap-key-row .gk-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(120,180,255,0.12); overflow: hidden; }
+.gap-key-row .gk-bar > i { display: block; height: 100%; background: var(--danger); }
+.gap-key-row .gk-val { width: 38px; text-align: right; color: var(--text); flex-shrink: 0; }
+
+/* Top 斑块列表 */
+.gap-patches { margin-top: 11px; border-top: 1px dashed var(--card-border); padding-top: 9px; }
+.gap-patches h5 { margin: 0 0 6px; font-size: 11px; color: var(--text-sub); font-weight: 600; letter-spacing: .5px; }
+.gap-patch-item {
+    display: flex; align-items: baseline; gap: 7px;
+    font-size: 11px; padding: 4px 0; color: var(--text);
+}
+.gap-patch-item .gp-rank { color: var(--warn); font-weight: 700; flex-shrink: 0; }
+.gap-patch-item .gp-main { flex: 1; }
+.gap-patch-item .gp-meta { color: var(--text-sub); font-size: 10px; }
+.gap-none { font-size: 12px; color: var(--success); margin: 4px 0 0; }
+.gap-note { margin: 9px 0 0; font-size: 10px; line-height: 1.6; color: var(--text-sub); }
+
+/* 地图上的斑块标签（BMapGL.Label 内容） */
+.gap-patch-label {
+    background: rgba(20,32,64,0.92);
+    border: 1px solid rgba(255,84,112,0.55);
+    color: #ffd7de;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35);
+    transform: translate(-50%, -50%);
+}
+
+/* Charts —— 适配 6 类 POI */
+.chart { width: 100%; height: 240px; }
+#barChart { height: 200px; }
 
 /* ============== REPORT TABS ============== */
 .report-tabs {
@@ -783,24 +865,26 @@ body::before {
 .report-card {
     grid-column: 1 / span 2; grid-row: 2;
     min-height: 220px;
-    max-height: 32vh;
+    max-height: 36vh;
     display: flex; flex-direction: column;
     overflow: hidden;  /* 防止对比报告过长撑爆布局；内容区自带滚动 */
 }
+/* 对比模式不改变外框高度——tab 栏保持与普通模式同一位置，内容靠内部滚动 */
 .report-card.has-compare {
-    max-height: 60vh;  /* 对比模式：报告更长 → 抬高上限，让对比表格能完整阅读 */
+    max-height: 36vh;
 }
 .report-actions { display: flex; align-items: center; gap: 10px; }
 .report-content {
     flex: 1 1 auto;
     min-height: 0;       /* 关键：flex 子项可滚动 */
-    padding: 18px 22px;
+    padding: 18px 22px 26px;   /* 底部留足 26px：滚动到底时最后一行完整可见、不贴边 */
     overflow-y: auto;
     overflow-x: auto;
     line-height: 1.7;
     color: var(--text);
     font-size: 13px;
 }
+.report-content > :last-child { margin-bottom: 6px; }  /* 最后一个区块再垫一点，防切行 */
 .report-content::-webkit-scrollbar { width: 8px; height: 8px; }
 .report-content::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
 .report-content::-webkit-scrollbar-thumb:hover { background: var(--primary-glow); }
@@ -833,6 +917,58 @@ body::before {
 .report-list li { margin-bottom: 4px; }
 
 .muted { color: var(--text-sub); }
+
+/* 对比报告表格 */
+.compare-report-table {
+    width: 100%; border-collapse: collapse; margin: 8px 0 14px;
+    font-size: 13px;
+}
+.compare-report-table th {
+    background: rgba(58,122,254,0.12);
+    color: var(--primary-glow);
+    font-weight: 600; font-size: 12px;
+    padding: 8px 10px; border-bottom: 2px solid var(--card-border);
+    text-align: left;
+}
+.compare-report-table td {
+    padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    vertical-align: middle;
+}
+.compare-report-table tbody tr:hover {
+    background: rgba(58,122,254,0.08);
+    cursor: default;
+}
+.compare-report-table .row-champion {
+    background: rgba(0,214,143,0.08);
+}
+.compare-report-table .row-champion:hover {
+    background: rgba(0,214,143,0.14);
+}
+.compare-report-table .cell-num {
+    text-align: right;                       /* 与右对齐表头对齐 */
+    font-variant-numeric: tabular-nums;
+    font-family: Consolas, "SF Mono", monospace;
+    white-space: nowrap;                     /* 防止 "2.56 km²" 被折行错位 */
+}
+/* 摘要表：固定列宽，让"可达面积 / 等级"等数字列间距均匀 */
+.t-summary { table-layout: fixed; }
+.t-summary th:nth-child(1), .t-summary td:nth-child(1) { width: 76px; }
+.t-summary th:nth-child(3), .t-summary td:nth-child(3) { width: 96px; }
+.t-summary th:nth-child(4), .t-summary td:nth-child(4) { width: 76px; }
+.t-summary th:nth-child(5), .t-summary td:nth-child(5) { width: 110px; }
+.t-summary th:nth-child(6), .t-summary td:nth-child(6) { width: 76px; text-align: center; }
+.t-summary td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.champion-badge {
+    display: inline-block; padding: 1px 7px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; color: #fff;
+    background: var(--success); border: none;
+}
+.compare-summary {
+    margin: 12px 0; padding: 12px 14px;
+    background: rgba(58,122,254,0.06);
+    border: 1px solid rgba(58,122,254,0.18);
+    border-radius: 8px; font-size: 13px; line-height: 1.75;
+}
 
 /* 三维评分细项（breakdown） */
 .score-breakdown {
@@ -904,8 +1040,8 @@ body::before {
     .layout { grid-template-columns: 1fr 340px; }
     .addr-bar input#addrInput,
     .addr-bar input#addrInputB { min-width: 220px; }
-    .chart { height: 150px; }
-    #barChart { height: 130px; }
+    .chart { height: 220px; }
+    #barChart { height: 180px; }
     .score-card .score-body { grid-template-columns: 96px 1fr; }
     .score-ring { width: 96px; height: 96px; }
     .score-num { font-size: 24px; }
@@ -922,8 +1058,8 @@ body::before {
     .addr-hint-popover { width: 380px; }
     .brand-text h1 { font-size: 16px; }
     .brand-text small { font-size: 11px; }
-    .chart { height: 140px; }
-    #barChart { height: 120px; }
+    .chart { height: 210px; }
+    #barChart { height: 165px; }
     .poi-count { padding: 6px 12px 8px; }
     .poi-item { padding: 6px 0; }
     .info-widgets { top: 8px; right: 8px; gap: 6px; }
@@ -939,7 +1075,7 @@ body::before {
     .layout {
         grid-template-columns: 1fr;
         grid-template-rows: 50vh minmax(280px, auto) minmax(200px, auto);
-        height: calc(100vh - 130px);
+        height: calc(100vh - var(--header-h, 130px));
     }
     .map-panel { grid-column: 1; grid-row: 1; }
     .side { grid-column: 1; grid-row: 2; max-height: 50vh; }
@@ -959,4 +1095,101 @@ body::before {
     .addr-hint-popover { left: 10px; right: 10px; top: 96px; width: auto; max-width: none; }
     .diag-toggle { font-size: 11px; padding: 0 10px 0 8px; height: 32px; }
     .diag-toggle .diag-label { display: none; }   /* 手机极窄时只显示齿轮图标，避免溢出 */
+}
+
+/* ===== 对比模式：右侧看板 A/B 并排视图 ===== */
+.score-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    padding: 12px 14px 14px;
+}
+.sc-mini {
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(58, 122, 254, 0.05);
+    min-width: 0;
+}
+.sc-mini.win {
+    border-color: rgba(0, 214, 143, 0.45);
+    background: rgba(0, 214, 143, 0.07);
+    box-shadow: 0 0 12px rgba(0, 214, 143, 0.10);
+}
+.sc-head { display: flex; align-items: center; gap: 6px; }
+.sc-tag {
+    width: 20px; height: 20px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+}
+.sc-tag.tag-a { background: #3a7afe; }
+.sc-tag.tag-b { background: #ff6b35; }
+.sc-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; border: 1px solid; white-space: nowrap; }
+.sc-lead { margin-left: auto; font-size: 10px; color: #00d68f; font-weight: 700; white-space: nowrap; }
+.sc-score { font-size: 30px; font-weight: 800; line-height: 1.2; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.sc-score i { font-style: normal; font-size: 12px; color: var(--text-sub); font-weight: 400; }
+.sc-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-sub); }
+.sc-meta .sc-addr { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 配套统计 A/B 双列 */
+.pc-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px dashed rgba(120, 180, 255, 0.08);
+}
+.pc-row:last-child { border-bottom: none; }
+.pc-row .ico {
+    width: 28px; height: 28px; border-radius: 8px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.pc-name {
+    flex: 1; min-width: 0; font-size: 12px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pc-name small { color: var(--text-sub); font-size: 10px; }
+.pc-cnt { width: 52px; text-align: right; font-size: 11px; color: var(--text-sub); font-variant-numeric: tabular-nums; flex: none; }
+.pc-cnt b { font-size: 14px; font-weight: 700; color: var(--text); }
+.pc-cnt.win-a b { color: #5b9bff; }
+.pc-cnt.win-b b { color: #ff9f43; }
+
+@media (max-width: 980px) {
+    .score-compare { padding: 10px 12px 12px; gap: 8px; }
+    .sc-score { font-size: 26px; }
+}
+
+/* [hidden] 修复：.score-compare 的 display:grid 会覆盖浏览器默认的 [hidden]{display:none}，
+   导致关闭对比后 A/B 迷你卡仍显示（与单地址大评分卡同屏出现 3 个分数） */
+#scoreCompareBody[hidden],
+#poiCompareList[hidden],
+#gapCompareBody[hidden] { display: none !important; }
+
+/* ===== 对比模式：服务盲区 A/B 对比卡 ===== */
+.gc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gc-col {
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 9px 11px;
+    background: rgba(58, 122, 254, 0.05);
+    min-width: 0;
+}
+.gc-col.win {
+    border-color: rgba(0, 214, 143, 0.45);
+    background: rgba(0, 214, 143, 0.07);
+    box-shadow: 0 0 12px rgba(0, 214, 143, 0.10);
+}
+.gc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.gc-head b { font-size: 12px; color: var(--text); }
+.gc-line {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+    font-size: 11px; color: var(--text-sub); line-height: 1.9;
+}
+.gc-line b { font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
+.gc-line b small { font-size: 10px; font-weight: 400; color: var(--text-sub); }
+.gc-note { margin: 8px 0 0; font-size: 11px; color: var(--text-sub); line-height: 1.6; }
+.gc-note b { color: #00d68f; }
+
+/* [hidden] 兜底：.gc-grid 等 display:grid 会覆盖 [hidden] 的默认 display:none */
+#gapCompareBody[hidden] { display: none !important; }
+
+@media (max-width: 980px) {
+    .gc-grid { gap: 8px; }
+    .gc-line { line-height: 1.7; }
 }

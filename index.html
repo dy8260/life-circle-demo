@@ -101,6 +101,7 @@
     <div class="legend">
       <h4>配套图例</h4>
       <ul id="legendList"></ul>
+      <ul id="gapLegendList" hidden></ul>
     </div>
 
     <!-- 进度提示 -->
@@ -135,11 +136,15 @@
           <div class="meta-row"><span>数据来源</span><b>百度真实路网</b></div>
         </div>
       </div>
+      <!-- 对比模式：A/B 并排评分卡（默认隐藏，Dashboard.renderCompare 切换） -->
+      <div class="score-compare" id="scoreCompareBody" hidden></div>
     </div>
 
     <div class="card">
       <div class="card-header"><h3>配套统计</h3><span class="card-tag" id="poiTotalTag">0 项</span></div>
       <div id="poiCountList" class="poi-count"></div>
+      <!-- 对比模式：A/B 配套数量对比列表 -->
+      <div id="poiCompareList" class="poi-count poi-compare" hidden></div>
     </div>
 
     <div class="card">
@@ -150,6 +155,19 @@
     <div class="card">
       <div class="card-header"><h3>分类计数</h3><span class="card-tag">条形图</span></div>
       <div id="barChart" class="chart"></div>
+    </div>
+
+    <!-- 服务盲区识别（赛题任务书 2.3 核心指标） -->
+    <div class="card gap-card">
+      <div class="card-header">
+        <h3>服务盲区识别</h3>
+        <button id="btnGapToggle" class="btn small ghost" disabled>显示点位</button>
+      </div>
+      <div id="gapBody" class="gap-body">
+        <p class="gap-empty muted">完成体检后自动识别：15 分钟步行范围内，菜市场 / 药店 / 小学 三类配套步行距离均超 1 km 的点位。</p>
+      </div>
+      <!-- 对比模式：A / B 服务盲区对比（默认隐藏，Dashboard.renderCompare 切换） -->
+      <div id="gapCompareBody" class="gap-body" hidden></div>
     </div>
 
   </aside>
@@ -177,7 +195,7 @@
           <li>广州市天河区珠江新城</li>
           <li>深圳市南山区科技园</li>
         </ul>
-        <p class="muted">系统会基于<strong>真实步行路网</strong>绘制 15 分钟可达圈，并自动统计医院、药店、商超、学校、公交站点五大类民生配套，最后生成体检报告。</p>
+        <p class="muted">系统会基于<strong>真实步行路网</strong>绘制 15 分钟可达圈，自动统计医院、药店、菜市场、商超、学校、公交站点六类民生配套，识别<strong>服务盲区</strong>点位，最后生成体检报告。</p>
       </div>
     </div>
     <div id="reportCompare" class="report-content" hidden></div>
@@ -235,9 +253,7 @@
 })();
 </script>
 
-<!-- 2. 百度地图 GL JS API（必需，联网）。callback=window.__bmapReady 在脚本中作为 JSONP 函数名调用 -->
-<script src="https://api.map.baidu.com/api?type=webgl&v=3.0&ak=4G0d2gbkyXWZRLIWovEsQg3ZmnIvgr49&callback=__bmapReadyCallback"
-        onerror="window.__diag && window.__diag('❌ 百度地图 API 脚本下载失败（network/AK/Referer）', 'error')"></script>
+<!-- 2. 百度地图 GL JS API（必需，联网）。key 由下方「本项目脚本」区动态注入（取自 window.BMAP_AK） -->
 <script>
     // 兼容官方 callback 用法（也兼容万一官方返回一个非预期脚本时）
     window.__bmapReadyCallback = window.__bmapReadyCallback || function () {};
@@ -253,14 +269,27 @@
         onerror="window.__diag && window.__diag('⚠️ simpleheat CDN 失败，自动回退 lib/simpleheat.min.js','warn')"></script>
 <script>window.simpleheat || document.write('<script src="lib/simpleheat.min.js"><\/script>');</script>
 
+<!-- 本地开发覆盖（config.local.js 已被 .gitignore 忽略，部署时不存在，404 无害）：提供 window.BMAP_AK_OVERRIDE -->
+<script src="config.local.js"></script>
 <!-- 本项目脚本（顺序敏感） -->
 <script src="js/config.js"></script>
+<!-- 动态注入百度地图 GL JS API：key 取自 window.BMAP_AK（本地=config.local.js 覆盖值；部署=CI 注入的占位符替换值） -->
+<script>
+    (function () {
+        var ak = window.BMAP_AK || '__BMAP_AK__';
+        var s = document.createElement('script');
+        s.src = 'https://api.map.baidu.com/api?type=webgl&v=3.0&ak=' + encodeURIComponent(ak) + '&callback=__bmapReadyCallback';
+        s.onerror = function () { window.__diag && window.__diag('❌ 百度地图 API 脚本下载失败（network/AK/Referer）', 'error'); };
+        document.head.appendChild(s);
+    })();
+</script>
 <script src="js/util.js"></script>
 <script src="js/region-data.js"></script>
 <script src="js/region.js"></script>
 <script src="js/heatmap.js"></script>
 <script src="js/isochrone.js"></script>
 <script src="js/poi.js"></script>
+<script src="js/gap.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/report.js"></script>
 <script src="js/compare.js"></script>

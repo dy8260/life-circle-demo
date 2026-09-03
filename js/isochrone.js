@@ -154,6 +154,31 @@
             return { polygon, area: Util.polygonArea(pts) };
         },
 
+        /**
+         * 默认等时圈多边形样式（供对比模式复用）
+         */
+        defaultStyle: function () {
+            return {
+                strokeColor: '#5b9bff',
+                strokeWeight: 2,
+                strokeOpacity: 0.9,
+                strokeStyle: 'solid',
+                fillColor: '#3a7afe',
+                fillOpacity: 0.22
+            };
+        },
+
+        /**
+         * 仅构造多边形点数组（不添加到地图，供对比模式离线使用）
+         * @param {Array} samples - build() 返回的采样点
+         * @param {BMapGL.Point} center
+         * @returns {Array<BMapGL.Point>} 闭合多边形顶点
+         */
+        buildPolygon: function (samples, center) {
+            if (!samples || samples.length < 3) return [];
+            return samples.map(p => new BMapGL.Point(p.lng, p.lat));
+        },
+
         clear: function (map) {
             if (this.polygon)      { map.removeOverlay(this.polygon); this.polygon = null; }
             if (this.centerMarker) { map.removeOverlay(this.centerMarker); this.centerMarker = null; }

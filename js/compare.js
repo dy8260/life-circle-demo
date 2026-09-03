@@ -61,6 +61,7 @@
                     center: s.summary.center,
                     score: r.score,
                     area: r.ir.area,
+                    ir: r.ir,              // 等时圈多边形对象（供对比地图渲染使用）
                     breakdown: r.breakdown,
                     missedCategories: r.missedCategories,
                     resultByKey: r.resultByKey
@@ -103,7 +104,7 @@
 
             // 表格 1：地址 & 总评分
             html += `<h4 class="report-section-title">🏆 对比结果 · 共 ${rows.length} 个地址</h4>`;
-            html += `<table class="compare-report-table">
+            html += `<table class="compare-report-table t-summary">
                 <thead><tr>
                     <th>排名</th><th>地址</th><th style="text-align:right">综合评分</th><th style="text-align:right">POI</th>
                     <th style="text-align:right">可达面积</th><th>等级</th>
@@ -124,7 +125,7 @@
 
             // 表格 2：维度数值对比
             html += `<h4 class="report-section-title">📊 四维度分项对比</h4>`;
-            html += `<table class="compare-report-table">
+            html += `<table class="compare-report-table t-dims">
                 <thead><tr>
                     <th>维度</th>
                     ${sortedByScore.map(row => `<th style="text-align:right">${escapeHtml(truncate(row.r.addr, 14))}</th>`).join('')}

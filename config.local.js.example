@@ -1,0 +1,4 @@
+// 本地开发用：复制本文件为 config.local.js 并填入你的浏览器端 AK。
+// config.local.js 已被 .gitignore 忽略，不会进入仓库 / 不会推送。
+// 部署不需要此文件 —— CI（GitHub Actions）会从 GitHub Secrets 注入真实 key。
+window.BMAP_AK_OVERRIDE = '__BMAP_AK__';
