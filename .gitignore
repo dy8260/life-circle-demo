@@ -24,9 +24,8 @@ config.local.js
 # 含明文 token / 私人路径的文件，禁止提交与推送
 相关资料.txt
 HOWTO-开发流程与回滚.md
-
-# 比赛分析类文档，不纳入版本库
-docs/
+# 比赛分析类文档（含私人路径/赛道标签，不纳入版本库）
+docs/赛题符合度分析.md
 
 # 注意：以下「必须保留」请不要加入忽略
-#   index.html  css/  js/  lib/  README.md
+#   index.html  css/  js/  lib/  README.md  docs/
