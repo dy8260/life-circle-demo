@@ -14,7 +14,7 @@
 | 4 | 配套热力图 | 自定义 Canvas 覆盖层 + simpleheat，权重：医院 > 菜市场 > 学校/药店 > 商超/公交 |
 | 5 | 数据可视化看板 | ECharts 雷达图（实际 vs 理想 vs 最低）+ 柱状图（数量分布）+ 综合评分环 |
 | 6 | 体检报告 | 根据 POI 数量 + 缺失惩罚自动打分，生成五段报告（概览 / 优势 / 不足 / **服务盲区识别** / 改造建议），支持复制 / 打印 |
-| 7 | **服务盲区识别**（赛题核心指标） | 在 15 分钟等时圈内栅格化采样，用真实步行路网标定绕行系数 λ，以「直线距离 × λ」外推步行距离场，识别菜市场 / 药店 / 小学三类步行距离均 > 1 km 的连片盲区，并在地图 / 看板 / 报告中三处呈现。详见 [`docs/服务盲区识别算法.md`](docs/服务盲区识别算法.md) |
+| 7 | **服务盲区识别**（赛题核心指标） | 在 15 分钟等时圈内栅格化采样，用真实步行路网标定绕行系数 λ，以「直线距离 × λ」外推步行距离场，识别菜市场 / 药店 / 小学三类步行距离均 > 1 km 的连片盲区，并在地图 / 看板 / 报告中三处呈现（实现见 `js/gap.js`）。 |
 
 ---
 
@@ -54,7 +54,7 @@ python -m http.server 8080 # Python
 ### 方式 C：公网部署
 - 阿里云 OSS / 腾讯 COS：把整个目录上传，开启静态网站托管
 - Vercel：`vercel --prod`（先在项目根加 `vercel.json`）
-- GitHub Pages：推送到 `gh-pages` 分支即可
+- GitHub Pages：推送到 `master` 分支，由 GitHub Actions（`.github/workflows/deploy.yml`）自动注入百度 AK 并部署
 
 > ⚠️ 把浏览器端 AK 暴露在前端是 demo 场景的常规做法，正式上线应在百度开放平台配置 **Referer 白名单**（如 `*.your-domain.com/*`）。
 
@@ -77,8 +77,9 @@ python -m http.server 8080 # Python
 │   ├── dashboard.js  # ECharts 图表 + POI 列表 + 评分环
 │   ├── report.js     # 四段式体检报告
 │   └── app.js        # 主流程串联
-├── test\
-│   └── smoke-test.js # 冒烟测试（mock 百度 API，无需浏览器/联网）
+├── tests\
+│   ├── gap-smoke.js       # 服务盲区识别 · 离线冒烟测试（无需浏览器/联网）
+│   └── gap-integration.js # 整机数据契约测试
 ├── lib\
 │   ├── echarts.min.js     # 本地副本（CDN 失败时自动回退）
 │   └── simpleheat.min.js  # 本地副本
@@ -95,7 +96,7 @@ python -m http.server 8080 # Python
 ### 5.1 离线冒烟测试（无浏览器也能跑）
 
 ```bash
-node test/smoke-test.js
+node tests/gap-smoke.js
 ```
 
 该测试 mock 了百度地图 API 的返回结构，验证两条最容易「静默失效」的链路：
