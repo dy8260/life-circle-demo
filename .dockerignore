@@ -1,0 +1,9 @@
+.git
+.workbuddy
+node_modules
+tests
+test
+scripts
+.github
+docs
+*.log

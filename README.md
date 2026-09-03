@@ -63,6 +63,26 @@ python -m http.server 8080 # Python
 
 > ⚠️ 把浏览器端 AK 暴露在前端是 demo 场景的常规做法，正式上线应在百度开放平台配置 **Referer 白名单**（如 `*.your-domain.com/*`）。
 
+### 方式 D：Docker 容器部署（环境配置兜底，满足任务书「Docker 或环境配置文件」要求）
+
+项目为纯静态前端，已提供极简 `Dockerfile`（官方 `nginx:alpine` 静态托管）+ `docker-entrypoint.sh`（运行时注入 AK）+ `.env.example`（环境变量模板）。**这套与「双击 / CI」两条路径完全独立，互不干扰**——Docker 仅在容器内部替换占位符，从不修改你本地仓库的文件。
+
+```bash
+# 1) 准备 AK（二选一）
+#   a. 直接传环境变量
+docker build -t life-circle .
+docker run -e BMAP_AK=你的浏览器端百度AK -p 8080:80 life-circle
+#   b. 或用 .env 文件（复制 .env.example 为 .env 填好 AK）
+cp .env.example .env   # 编辑填入真实 AK
+docker build -t life-circle .
+docker run --env-file .env -p 8080:80 life-circle
+
+# 2) 浏览器访问
+http://localhost:8080/
+```
+
+> AK 注入机制：容器内 `docker-entrypoint.sh` 在启动时把 `BMAP_AK` 环境变量 sed 替换进 `index.html` 与 `js/config.js` 的 `__BMAP_AK__` 占位符，随后启动 nginx。**镜像本身不含真 key**，符合源码脱敏要求；不传 `BMAP_AK` 则保留占位符（地图不可用）。
+
 ### 示例数据（满足「配置好示例数据」要求）
 
 仓库内置一份**真实体检导出快照** `data/sample-community.json`（北京·望京，评分 97/100，详见 `docs/真实对比测试报告.md`），
