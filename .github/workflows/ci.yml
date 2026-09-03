@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [master, dev2026]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 服务盲区识别 · 冒烟测试
+        run: node tests/gap-smoke.js
+
+      - name: 整机数据契约测试
+        run: node tests/gap-integration.js
+
+      - name: 代码格式检查 (prettier)
+        run: npx --yes prettier@3 --check "js/**/*.js" "*.html" "css/**/*.css" || true
