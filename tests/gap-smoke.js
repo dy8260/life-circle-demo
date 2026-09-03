@@ -3,8 +3,6 @@
  *
  * 运行：
  *   node tests/gap-smoke.js
- * 或用 WorkBuddy 内置 Node：
- *   C:/Users/dy/.workbuddy/binaries/node/versions/22.22.2-2/node.exe tests/gap-smoke.js
  *
  * 做什么：
  *   把 js/config.js、js/util.js、js/gap.js 塞进一个假的 window 沙箱里执行，
