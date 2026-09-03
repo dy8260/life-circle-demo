@@ -24,7 +24,7 @@ function makeSandbox() {
 function fakeDoc() {
     const store = {};
     const mk = () => ({ innerHTML: '', textContent: '', hidden: false,
-        classList: { add(){}, remove(){}, contains(){return false} }, style: {},
+        classList: { add(){}, remove(){}, contains(){return false} }, style: {}, dataset: {},
         addEventListener(){}, appendChild(){}, setAttribute(){}, getAttribute(){return null} });
     return {
         getElementById: (id) => (store[id] || (store[id] = mk())),
