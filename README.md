@@ -4,6 +4,9 @@
 
 ---
 
+> 🌐 **在线演示（推荐 · 零配置 · 免 AK）**：本项目已部署在 GitHub Pages，百度 AK 由 CI（GitHub Actions）自动注入，**直接打开即可使用，无需自备 AK、无需本地运行**：
+> **https://dy8260.github.io/life-circle-demo/**
+
 ## 一、功能一览
 
 | # | 模块 | 实现要点 |
@@ -32,7 +35,7 @@
 ```
 双击 index.html（需联网，且浏览器允许 file:// 加载百度地图脚本）
 ```
-> 本地双击运行需提供有效 AK：在项目根目录放一个 `config.local.js`（已被 `.gitignore` 忽略，不进仓库），内容：
+> 本地双击运行需提供有效 AK：复制仓库内的模板 `config.local.js.example` 为 `config.local.js`（已被 `.gitignore` 忽略，不进仓库），填入你的浏览器端百度 AK：
 > ```js
 > window.BMAP_AK_OVERRIDE = '你的浏览器端百度AK';
 > ```
@@ -91,8 +94,8 @@ http://localhost:8080/
 由 `scripts/gen-report-from-snapshot.js` 读取并生成对比测试报告。
 
 > ⚠️ 本应用**基于百度地图开放能力在线运行**（地理编码 / POI 检索 / 路径规划），需要有效的浏览器端 AK。
-> 源码仓库中 AK 为脱敏占位符 `__BMAP_AK__`，**部署时由 CI（`.github/workflows/deploy.yml`）注入真实 Key**，
-> 评审使用部署后的在线链接即可，无需自行配置 AK。
+> 源码仓库中 AK 为脱敏占位符 `__BMAP_AK__`，**部署时由 CI（`.github/workflows/deploy.yml`）注入真实 Key**。
+> 评审使用已部署的在线链接即可，无需自行配置 AK：**https://dy8260.github.io/life-circle-demo/**
 
 ```bash
 # 本地预览（需先在本目录放 config.local.js 填好真 AK，或用已注入 AK 的线上链接）
@@ -115,6 +118,9 @@ http://localhost:8080/          # 输入社区地址 → 开始体检（基于�
 │   └── style.css     # 深色大屏 / 玻璃拟态
 ├── js\
 │   ├── config.js     # AK / 主题色 / 等时圈参数 / POI 阈值
+├── config.local.js.example  # 本地 AK 模板（复制为 config.local.js 填你的 AK；本文件仅占位符，可提交）
+├── .env.example            # Docker 运行时的 AK 环境变量模板
+├── Dockerfile / docker-entrypoint.sh / .dockerignore  # Docker 环境配置兜底
 │   ├── util.js       # 距离 / 面积 / 并发限流
 │   ├── heatmap.js    # 浮动 Canvas + simpleheat 热力图层
 │   ├── isochrone.js  # 等时圈核心（多方向步行路径规划 + 弧长插值）
