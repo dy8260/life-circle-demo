@@ -88,6 +88,15 @@
                 return;
             }
 
+            // 同步保存对比报告标题，供 tab 切换时显示
+            const addrTag = document.getElementById('reportAddr');
+            if (addrTag && rows.length >= 2) {
+                const addrs = rows.map(x => x.r.addr).filter(Boolean);
+                addrTag.dataset.compare = addrs.length >= 2
+                    ? `对比报告：${addrs[0]} vs ${addrs[1]}`
+                    : '对比报告';
+            }
+
             const sortedByScore = [...rows].sort((a, b) => a.r.score === undefined ? 1 : (b.r.score - a.r.score));
             const championIdx = sortedByScore[0].i;
             const runnerUp = sortedByScore[1];
@@ -176,6 +185,8 @@
             this.slots = [null, null];
             this.results = [null, null];
             this.renderReport();
+            const addrTag = document.getElementById('reportAddr');
+            if (addrTag) delete addrTag.dataset.compare;
         },
 
         /** 切换报告 tab 到对比 */
@@ -190,6 +201,9 @@
             });
             document.getElementById('reportSingle').hidden = true;
             document.getElementById('reportCompare').hidden = false;
+            // 同步头部标题
+            const addrTag = document.getElementById('reportAddr');
+            if (addrTag) addrTag.textContent = addrTag.dataset.compare || '对比报告';
         },
 
         /** 切回单地址报告 tab */
@@ -201,6 +215,9 @@
             });
             document.getElementById('reportSingle').hidden = false;
             document.getElementById('reportCompare').hidden = true;
+            // 同步头部标题
+            const addrTag = document.getElementById('reportAddr');
+            if (addrTag) addrTag.textContent = addrTag.dataset.single || '尚未体检';
         }
     };
 

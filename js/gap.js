@@ -109,10 +109,17 @@
 
             const indexes = {};
             const poiCount = {};
+            const missing = [];
             keys.forEach(k => {
                 indexes[k] = this._buildIndex(resultByKey[k].items);
                 poiCount[k] = indexes[k].count;
+                if (poiCount[k] === 0) missing.push(k);
             });
+            if (missing.length > 0) {
+                const nameMap = { market: '菜市场', pharmacy: '药店', school: '小学/学校', hospital: '医院', store: '商超', bus: '公交站' };
+                const names = missing.map(k => nameMap[k] || k).join('、');
+                return empty(`未检索到 ${names} POI，无法判定服务盲区`);
+            }
 
             // ── 直线距离场（同时记录最近 POI 的实际坐标，供 λ 标定使用）──
             report(0.15, '计算直线距离场');

@@ -217,6 +217,15 @@ function buildResultByKey() {
     const rF3 = await sbF.GapFinder.analyze(null, polygon, buildResultByKey(), () => {});
     ok(rF3.enabled === false, '中心点缺失 → 优雅降级');
 
+    /* --- 场景 G：判定关键类 POI 缺失时应跳过盲区分析 --- */
+    console.log('\n[场景 G] 菜市场 POI 为空 → 应跳过盲区分析并提示');
+    const sbG = makeSandbox(null);
+    const sparse = buildResultByKey();
+    sparse.market = { items: [] };   // 菜市场为空
+    const rG = await sbG.GapFinder.analyze(CENTER, polygon, sparse, () => {});
+    ok(rG.enabled === false && !!rG.reason, '关键类缺失 → 跳过盲区分析');
+    ok(rG.reason && rG.reason.includes('菜市场'), 'reason 提示缺失的菜市场类别');
+
     /* --- 汇总 --- */
     console.log('\n──────────────────────────────');
     console.log(`  通过 ${pass} 项，失败 ${fail} 项`);

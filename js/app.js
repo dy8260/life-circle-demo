@@ -178,6 +178,7 @@
                 const card = document.querySelector('.report-card');
                 if (card) card.classList.toggle('has-compare', which === 'compare');
                 if (which === 'compare' && global.Compare) global.Compare.renderReport();
+                syncReportHeader(which);
             });
         });
 
@@ -731,13 +732,48 @@
         }
     }
 
+    /**
+     * 根据当前报告 tab 同步卡片头部 #reportAddr 标题
+     * @param {string} which 'single' | 'compare'；不传则取当前 active tab
+     */
+    function syncReportHeader(which) {
+        const addrTag = document.getElementById('reportAddr');
+        if (!addrTag) return;
+        if (!which) {
+            const activeTab = document.querySelector('.report-tabs .tab.active');
+            which = activeTab && activeTab.dataset.tab || 'single';
+        }
+        if (which === 'compare') {
+            addrTag.textContent = addrTag.dataset.compare || '对比报告';
+        } else {
+            addrTag.textContent = addrTag.dataset.single || '尚未体检';
+        }
+    }
+
+    /** 当前激活的报告面板（单地址 / 对比） */
+    function getActiveReportInfo() {
+        const activeTab = document.querySelector('.report-tabs .tab.active');
+        if (activeTab && activeTab.dataset.tab === 'compare') {
+            const c = global.Compare;
+            let subtitle = '对比报告';
+            if (c && c.results && c.results[0] && c.results[1]) {
+                subtitle = `对比报告：${c.results[0].addr} vs ${c.results[1].addr}`;
+            }
+            return { el: document.getElementById('reportCompare'), subtitle, isCompare: true };
+        }
+        return { el: document.getElementById('reportSingle'), subtitle: document.getElementById('reportAddr').textContent, isCompare: false };
+    }
+
     /** 复制报告 */
     async function copyReport() {
-        const addrTag = document.getElementById('reportAddr');
-        if (!addrTag || addrTag.textContent.includes('尚未体检')) { toast('暂无可复制的内容'); return; }
-        const html = document.getElementById('reportSingle').innerText;
+        const { el, subtitle } = getActiveReportInfo();
+        if (!el || el.textContent.trim().length === 0 || (subtitle && subtitle.includes('尚未体检'))) {
+            toast('暂无可复制的内容');
+            return;
+        }
+        const text = el.innerText;
         try {
-            await navigator.clipboard.writeText(html);
+            await navigator.clipboard.writeText(text);
             toast('报告内容已复制到剪贴板');
         } catch (e) {
             toast('复制失败：浏览器不支持');
@@ -745,8 +781,13 @@
     }
 
     function printReport() {
-        const content = document.getElementById('reportSingle').innerHTML;
-        const addr = document.getElementById('reportAddr').textContent;
+        const { el, subtitle } = getActiveReportInfo();
+        if (!el || el.innerHTML.trim().length === 0 || (subtitle && subtitle.includes('尚未体检'))) {
+            toast('暂无可打印的内容');
+            return;
+        }
+        const content = el.innerHTML;
+        const addr = subtitle;
         const w = window.open('', '_blank');
         if (!w) { toast('请允许弹窗以打印报告'); return; }
         w.document.write(`
@@ -782,7 +823,12 @@
                 <ul><li>北京市朝阳区望京 SOHO</li><li>上海市浦东新区陆家嘴</li></ul>
                 <p class="muted">系统会基于<strong>真实步行路网</strong>绘制 15 分钟可达圈，统计六类民生配套并识别<strong>服务盲区</strong>。</p>
             </div>`;
-        document.getElementById('reportAddr').textContent = '尚未体检';
+        const addrTag = document.getElementById('reportAddr');
+        if (addrTag) {
+            addrTag.textContent = '尚未体检';
+            delete addrTag.dataset.single;
+            delete addrTag.dataset.compare;
+        }
         Dashboard.exitCompare();          // 若正处于对比看板视图，先还原单地址 DOM
         _exitCompareModeUI();             // 收起地址 B 行 + 报告 tab 切回「单地址体检报告」
         if (global.Compare) global.Compare.clear();   // 重置：对比结果一并清空

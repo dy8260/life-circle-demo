@@ -135,9 +135,13 @@
             const el = document.getElementById('reportSingle');
             if (el) el.innerHTML = html.join('');
 
-            // 报告地址（地图右上角也会用到）
+            // 报告地址（报告卡片头部 + 地图右上角也会用到）
             const addrTag = document.getElementById('reportAddr');
-            if (addrTag) addrTag.textContent = `${addr} · ${lvl.text} ${score} 分`;
+            const singleTitle = `${addr} · ${lvl.text} ${score} 分`;
+            if (addrTag) {
+                addrTag.textContent = singleTitle;
+                addrTag.dataset.single = singleTitle;
+            }
 
             return this._plainText(addr, lvl, score, areaM2, total, sufficient, adequate, lacking, missing, gap);
         },
@@ -225,13 +229,18 @@
             if (gap.centerStatus) {
                 const cs = gap.centerStatus;
                 const distTxt = (p.checkKeys || [])
-                    .map(k => `${nameOf(k)} ${cs.dist[k]} m`).join('、');
+                    .map(k => {
+                        const d = cs.dist[k];
+                        const txt = (d == null || !isFinite(d)) ? '未检索到' : `${d} m`;
+                        return `${nameOf(k)} ${txt}`;
+                    }).join('、');
                 html.push(`<p>📍 <b>中心点</b>${cs.isGap ? '本身即位于服务盲区内' : '不在服务盲区内'}，
                     三类最近步行距离分别为：${escapeHtml(distTxt)}。</p>`);
             }
             if (gap.worstPoint) {
+                const worstTxt = !isFinite(gap.worstPoint.worst) ? '未检索到' : `${gap.worstPoint.worst} m`;
                 html.push(`<p>🚩 <b>最差点位</b>位于 <code>${gap.worstPoint.lat.toFixed(5)}, ${gap.worstPoint.lng.toFixed(5)}</code>，
-                    三类中最容易到达的一类仍需步行 <b>${gap.worstPoint.worst} m</b>。</p>`);
+                    三类中最容易到达的一类仍需步行 <b>${worstTxt}</b>。</p>`);
             }
 
             // Top 斑块
@@ -239,9 +248,11 @@
                 html.push('<h5 style="margin:12px 0 6px;font-size:13px;color:#e6f0ff">🔴 优先改造斑块（按 面积 × 缺口强度 排序）</h5>');
                 html.push('<ul class="report-list">');
                 gap.patches.forEach((pt, i) => {
+                    const avgTxt = !isFinite(pt.avgGap) ? '未检索到' : `${Math.round(pt.avgGap)} m`;
+                    const maxTxt = !isFinite(pt.maxGap) ? '未检索到' : `${Math.round(pt.maxGap)} m`;
                     html.push(`<li><b>斑块 ${marks[i] || (i + 1)}</b>：约 ${(pt.areaM2 / 1e4).toFixed(2)} 公顷
-                        （${pt.size} 个栅格），平均需步行 <b>${Math.round(pt.avgGap)} m</b> 才能到达最近的一类配套，
-                        最差点位 <b>${Math.round(pt.maxGap)} m</b>
+                        （${pt.size} 个栅格），平均需步行 <b>${avgTxt}</b> 才能到达最近的一类配套，
+                        最差点位 <b>${maxTxt}</b>
                         <div class="gp-meta">中心坐标 ${pt.centroid.lat.toFixed(5)}, ${pt.centroid.lng.toFixed(5)}</div></li>`);
                 });
                 html.push('</ul>');
