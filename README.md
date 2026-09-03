@@ -58,6 +58,30 @@ python -m http.server 8080 # Python
 
 > ⚠️ 把浏览器端 AK 暴露在前端是 demo 场景的常规做法，正式上线应在百度开放平台配置 **Referer 白名单**（如 `*.your-domain.com/*`）。
 
+### 方式 D：演示模式（离线示例数据，无需 AK）
+
+clone 后若**未配置百度 AK**（源码里只有占位符 `__BMAP_AK__`），打开首页会**自动进入「演示模式」**：
+加载 `data/sample-community.json`（一份贴合真实的仿真快照），直接渲染完整看板 / 体检报告，
+地图区改用 `js/demo-render.js` 的 **Canvas** 离线绘制等时圈 + POI + 服务盲区，**全程不依赖百度、不联网**，
+评委/评审零门槛即可看到完整可运行效果（满足任务书「配置好示例数据、保证快速跑通演示」）。
+
+```bash
+# 必须用 HTTP 方式打开（file:// 会因 fetch 被浏览器拦截而加载失败）
+python -m http.server 8080
+# 浏览器访问
+http://localhost:8080/          # 无 AK 自动演示
+http://localhost:8080/?demo=1   # 强制演示模式（即使带 AK 也走离线示例）
+```
+
+把真实数据替换进示例（赛前建议做一次，让演示=真实结果）：
+
+1. 配置 `config.local.js` 填入你的浏览器端 AK，或直接用已注入 AK 的线上 GitHub Pages；
+2. 输入任意地址 → 开始体检，跑通后右上角出现「⬇ 导出演示数据」；
+3. 点击导出，下载 `sample-community.json`，覆盖 `data/sample-community.json`；
+4. 重新打开即加载真实数据；`docs/真实对比测试报告.md` 数字随之自动一致。
+
+> 仿真数据由 `scripts/gen-sample-data.js`（固定随机种子，可复现）生成；详见 `data/README.md`。
+
 ---
 
 ## 四、目录结构

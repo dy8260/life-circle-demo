@@ -1,0 +1,1067 @@
+{
+  "meta": {
+    "name": "陆家嘴示例社区（离线演示数据）",
+    "city": "上海市",
+    "address": "上海市·浦东新区·陆家嘴",
+    "note": "本文件为仿真实例数据，用于无 AK / 离线演示。真实数据请在带 AK 的线上点「导出演示数据」覆盖。",
+    "generatedBy": "scripts/gen-sample-data.js",
+    "generatedAt": "2026-09-03"
+  },
+  "center": {
+    "lng": 121.5057,
+    "lat": 31.2453,
+    "address": "上海市·浦东新区·陆家嘴"
+  },
+  "samples": [
+    {
+      "lng": 121.520325,
+      "lat": 31.2453
+    },
+    {
+      "lng": 121.520166,
+      "lat": 31.250423
+    },
+    {
+      "lng": 121.514318,
+      "lat": 31.252668
+    },
+    {
+      "lng": 121.509638,
+      "lat": 31.253428
+    },
+    {
+      "lng": 121.5057,
+      "lat": 31.257738
+    },
+    {
+      "lng": 121.500618,
+      "lat": 31.25579
+    },
+    {
+      "lng": 121.497604,
+      "lat": 31.252221
+    },
+    {
+      "lng": 121.494361,
+      "lat": 31.249315
+    },
+    {
+      "lng": 121.49337,
+      "lat": 31.2453
+    },
+    {
+      "lng": 121.492241,
+      "lat": 31.240534
+    },
+    {
+      "lng": 121.497244,
+      "lat": 31.23807
+    },
+    {
+      "lng": 121.501617,
+      "lat": 31.236872
+    },
+    {
+      "lng": 121.5057,
+      "lat": 31.235234
+    },
+    {
+      "lng": 121.509797,
+      "lat": 31.236845
+    },
+    {
+      "lng": 121.516039,
+      "lat": 31.23646
+    },
+    {
+      "lng": 121.519562,
+      "lat": 31.240391
+    }
+  ],
+  "area": 4611092,
+  "resultByKey": {
+    "hospital": {
+      "items": [
+        {
+          "name": "医院示例点1",
+          "point": {
+            "lng": 121.501782,
+            "lat": 31.250869
+          }
+        },
+        {
+          "name": "医院示例点2",
+          "point": {
+            "lng": 121.509461,
+            "lat": 31.240196
+          }
+        },
+        {
+          "name": "医院示例点3",
+          "point": {
+            "lng": 121.509253,
+            "lat": 31.247545
+          }
+        }
+      ]
+    },
+    "pharmacy": {
+      "items": [
+        {
+          "name": "药店示例点1",
+          "point": {
+            "lng": 121.511114,
+            "lat": 31.247278
+          }
+        },
+        {
+          "name": "药店示例点2",
+          "point": {
+            "lng": 121.495946,
+            "lat": 31.245778
+          }
+        },
+        {
+          "name": "药店示例点3",
+          "point": {
+            "lng": 121.503779,
+            "lat": 31.251702
+          }
+        },
+        {
+          "name": "药店示例点4",
+          "point": {
+            "lng": 121.502906,
+            "lat": 31.249681
+          }
+        },
+        {
+          "name": "药店示例点5",
+          "point": {
+            "lng": 121.509631,
+            "lat": 31.249023
+          }
+        },
+        {
+          "name": "药店示例点6",
+          "point": {
+            "lng": 121.500385,
+            "lat": 31.241419
+          }
+        }
+      ]
+    },
+    "market": {
+      "items": [
+        {
+          "name": "菜市场示例点1",
+          "point": {
+            "lng": 121.511836,
+            "lat": 31.238888
+          }
+        }
+      ]
+    },
+    "store": {
+      "items": [
+        {
+          "name": "商超示例点1",
+          "point": {
+            "lng": 121.506173,
+            "lat": 31.239993
+          }
+        },
+        {
+          "name": "商超示例点2",
+          "point": {
+            "lng": 121.507441,
+            "lat": 31.249083
+          }
+        },
+        {
+          "name": "商超示例点3",
+          "point": {
+            "lng": 121.50405,
+            "lat": 31.243589
+          }
+        },
+        {
+          "name": "商超示例点4",
+          "point": {
+            "lng": 121.509455,
+            "lat": 31.248369
+          }
+        },
+        {
+          "name": "商超示例点5",
+          "point": {
+            "lng": 121.508384,
+            "lat": 31.249482
+          }
+        },
+        {
+          "name": "商超示例点6",
+          "point": {
+            "lng": 121.501643,
+            "lat": 31.244315
+          }
+        },
+        {
+          "name": "商超示例点7",
+          "point": {
+            "lng": 121.49747,
+            "lat": 31.246163
+          }
+        },
+        {
+          "name": "商超示例点8",
+          "point": {
+            "lng": 121.50554,
+            "lat": 31.242645
+          }
+        },
+        {
+          "name": "商超示例点9",
+          "point": {
+            "lng": 121.504053,
+            "lat": 31.240022
+          }
+        }
+      ]
+    },
+    "school": {
+      "items": [
+        {
+          "name": "学校示例点1",
+          "point": {
+            "lng": 121.51194,
+            "lat": 31.249433
+          }
+        },
+        {
+          "name": "学校示例点2",
+          "point": {
+            "lng": 121.51491,
+            "lat": 31.244209
+          }
+        }
+      ]
+    },
+    "bus": {
+      "items": [
+        {
+          "name": "公交站示例点1",
+          "point": {
+            "lng": 121.502522,
+            "lat": 31.241512
+          }
+        },
+        {
+          "name": "公交站示例点2",
+          "point": {
+            "lng": 121.503295,
+            "lat": 31.250659
+          }
+        },
+        {
+          "name": "公交站示例点3",
+          "point": {
+            "lng": 121.504991,
+            "lat": 31.237499
+          }
+        },
+        {
+          "name": "公交站示例点4",
+          "point": {
+            "lng": 121.508374,
+            "lat": 31.24333
+          }
+        },
+        {
+          "name": "公交站示例点5",
+          "point": {
+            "lng": 121.497043,
+            "lat": 31.24437
+          }
+        },
+        {
+          "name": "公交站示例点6",
+          "point": {
+            "lng": 121.500084,
+            "lat": 31.243604
+          }
+        },
+        {
+          "name": "公交站示例点7",
+          "point": {
+            "lng": 121.509546,
+            "lat": 31.239425
+          }
+        },
+        {
+          "name": "公交站示例点8",
+          "point": {
+            "lng": 121.508301,
+            "lat": 31.247074
+          }
+        },
+        {
+          "name": "公交站示例点9",
+          "point": {
+            "lng": 121.503105,
+            "lat": 31.235168
+          }
+        },
+        {
+          "name": "公交站示例点10",
+          "point": {
+            "lng": 121.497503,
+            "lat": 31.251744
+          }
+        },
+        {
+          "name": "公交站示例点11",
+          "point": {
+            "lng": 121.516345,
+            "lat": 31.247106
+          }
+        },
+        {
+          "name": "公交站示例点12",
+          "point": {
+            "lng": 121.51125,
+            "lat": 31.242859
+          }
+        }
+      ]
+    }
+  },
+  "gapResult": {
+    "enabled": true,
+    "ok": true,
+    "params": {
+      "radiusMeters": 1000,
+      "severeMeters": 1500,
+      "gridStepMeters": 120,
+      "stepAutoEnlarged": false,
+      "checkKeys": [
+        "market",
+        "pharmacy",
+        "school"
+      ]
+    },
+    "lambda": 1.28,
+    "lambdaRaw": 1.28,
+    "lambdaFallback": false,
+    "lambdaClamped": false,
+    "lambdaSamples": 6,
+    "lambdaDetail": [
+      {
+        "lng": 121.5027,
+        "lat": 31.2473,
+        "key": "market",
+        "straight": 820,
+        "walk": 1040,
+        "lambda": 1.27
+      },
+      {
+        "lng": 121.50970000000001,
+        "lat": 31.2423,
+        "key": "pharmacy",
+        "straight": 760,
+        "walk": 980,
+        "lambda": 1.29
+      },
+      {
+        "lng": 121.50070000000001,
+        "lat": 31.2413,
+        "key": "school",
+        "straight": 880,
+        "walk": 1120,
+        "lambda": 1.27
+      },
+      {
+        "lng": 121.5117,
+        "lat": 31.2463,
+        "key": "market",
+        "straight": 690,
+        "walk": 880,
+        "lambda": 1.28
+      },
+      {
+        "lng": 121.5047,
+        "lat": 31.2513,
+        "key": "pharmacy",
+        "straight": 810,
+        "walk": 1040,
+        "lambda": 1.28
+      },
+      {
+        "lng": 121.5077,
+        "lat": 31.2383,
+        "key": "school",
+        "straight": 900,
+        "walk": 1150,
+        "lambda": 1.28
+      }
+    ],
+    "gridCount": 412,
+    "gapCount": 47,
+    "severeCount": 9,
+    "gapRatio": 0.1141,
+    "gapAreaM2": 676800,
+    "poiCount": {
+      "market": 1,
+      "pharmacy": 6,
+      "school": 2
+    },
+    "gapPoints": [
+      {
+        "lng": 121.498197,
+        "lat": 31.249581,
+        "dist": {
+          "market": 1683,
+          "pharmacy": 1037,
+          "school": 1194
+        },
+        "worst": 1037,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.49899,
+        "lat": 31.24947,
+        "dist": {
+          "market": 1662,
+          "pharmacy": 1332,
+          "school": 1175
+        },
+        "worst": 1175,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.497586,
+        "lat": 31.248863,
+        "dist": {
+          "market": 1700,
+          "pharmacy": 1055,
+          "school": 1577
+        },
+        "worst": 1055,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498908,
+        "lat": 31.251268,
+        "dist": {
+          "market": 1445,
+          "pharmacy": 1800,
+          "school": 1630
+        },
+        "worst": 1445,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.499953,
+        "lat": 31.250008,
+        "dist": {
+          "market": 1843,
+          "pharmacy": 1730,
+          "school": 1228
+        },
+        "worst": 1228,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498798,
+        "lat": 31.248167,
+        "dist": {
+          "market": 1826,
+          "pharmacy": 1675,
+          "school": 1599
+        },
+        "worst": 1599,
+        "level": 2,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498564,
+        "lat": 31.249512,
+        "dist": {
+          "market": 1143,
+          "pharmacy": 1180,
+          "school": 1233
+        },
+        "worst": 1143,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.501115,
+        "lat": 31.249258,
+        "dist": {
+          "market": 1854,
+          "pharmacy": 1150,
+          "school": 2001
+        },
+        "worst": 1150,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.498414,
+        "lat": 31.24916,
+        "dist": {
+          "market": 1693,
+          "pharmacy": 1510,
+          "school": 1836
+        },
+        "worst": 1510,
+        "level": 2,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.497497,
+        "lat": 31.250244,
+        "dist": {
+          "market": 1311,
+          "pharmacy": 1486,
+          "school": 1715
+        },
+        "worst": 1311,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.49996,
+        "lat": 31.249999,
+        "dist": {
+          "market": 1235,
+          "pharmacy": 1413,
+          "school": 1884
+        },
+        "worst": 1235,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.497795,
+        "lat": 31.250758,
+        "dist": {
+          "market": 1706,
+          "pharmacy": 1416,
+          "school": 1600
+        },
+        "worst": 1416,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.500404,
+        "lat": 31.25023,
+        "dist": {
+          "market": 1706,
+          "pharmacy": 1395,
+          "school": 1725
+        },
+        "worst": 1395,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.49913,
+        "lat": 31.250228,
+        "dist": {
+          "market": 1740,
+          "pharmacy": 1040,
+          "school": 1317
+        },
+        "worst": 1040,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498141,
+        "lat": 31.250745,
+        "dist": {
+          "market": 1550,
+          "pharmacy": 1529,
+          "school": 1887
+        },
+        "worst": 1529,
+        "level": 2,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.499585,
+        "lat": 31.249406,
+        "dist": {
+          "market": 1081,
+          "pharmacy": 1598,
+          "school": 1205
+        },
+        "worst": 1081,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.499522,
+        "lat": 31.24988,
+        "dist": {
+          "market": 1565,
+          "pharmacy": 1699,
+          "school": 1549
+        },
+        "worst": 1549,
+        "level": 2,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.499244,
+        "lat": 31.249529,
+        "dist": {
+          "market": 1193,
+          "pharmacy": 1360,
+          "school": 1472
+        },
+        "worst": 1193,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.499284,
+        "lat": 31.249654,
+        "dist": {
+          "market": 1840,
+          "pharmacy": 1478,
+          "school": 1321
+        },
+        "worst": 1321,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.499125,
+        "lat": 31.249499,
+        "dist": {
+          "market": 1933,
+          "pharmacy": 1511,
+          "school": 2007
+        },
+        "worst": 1511,
+        "level": 2,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.499457,
+        "lat": 31.249239,
+        "dist": {
+          "market": 1089,
+          "pharmacy": 1505,
+          "school": 1160
+        },
+        "worst": 1089,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.500582,
+        "lat": 31.248401,
+        "dist": {
+          "market": 1860,
+          "pharmacy": 1664,
+          "school": 1773
+        },
+        "worst": 1664,
+        "level": 2,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.500655,
+        "lat": 31.249137,
+        "dist": {
+          "market": 1762,
+          "pharmacy": 1802,
+          "school": 1415
+        },
+        "worst": 1415,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.500272,
+        "lat": 31.25025,
+        "dist": {
+          "market": 1377,
+          "pharmacy": 1679,
+          "school": 1170
+        },
+        "worst": 1170,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.500534,
+        "lat": 31.249317,
+        "dist": {
+          "market": 1346,
+          "pharmacy": 1251,
+          "school": 1290
+        },
+        "worst": 1251,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498129,
+        "lat": 31.250326,
+        "dist": {
+          "market": 1471,
+          "pharmacy": 1734,
+          "school": 1955
+        },
+        "worst": 1471,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.49758,
+        "lat": 31.249126,
+        "dist": {
+          "market": 1542,
+          "pharmacy": 1406,
+          "school": 1400
+        },
+        "worst": 1400,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498566,
+        "lat": 31.249406,
+        "dist": {
+          "market": 1734,
+          "pharmacy": 1654,
+          "school": 1573
+        },
+        "worst": 1573,
+        "level": 2,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.500305,
+        "lat": 31.248389,
+        "dist": {
+          "market": 1786,
+          "pharmacy": 1245,
+          "school": 1516
+        },
+        "worst": 1245,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498689,
+        "lat": 31.249416,
+        "dist": {
+          "market": 1736,
+          "pharmacy": 1063,
+          "school": 1377
+        },
+        "worst": 1063,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.497695,
+        "lat": 31.248955,
+        "dist": {
+          "market": 1528,
+          "pharmacy": 1523,
+          "school": 2015
+        },
+        "worst": 1523,
+        "level": 2,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.498649,
+        "lat": 31.249423,
+        "dist": {
+          "market": 1652,
+          "pharmacy": 1492,
+          "school": 1209
+        },
+        "worst": 1209,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.497818,
+        "lat": 31.250205,
+        "dist": {
+          "market": 1451,
+          "pharmacy": 1374,
+          "school": 1823
+        },
+        "worst": 1374,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.498866,
+        "lat": 31.249628,
+        "dist": {
+          "market": 1740,
+          "pharmacy": 1309,
+          "school": 1949
+        },
+        "worst": 1309,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.498965,
+        "lat": 31.251623,
+        "dist": {
+          "market": 1209,
+          "pharmacy": 1544,
+          "school": 1302
+        },
+        "worst": 1209,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.49884,
+        "lat": 31.250234,
+        "dist": {
+          "market": 1589,
+          "pharmacy": 1239,
+          "school": 1759
+        },
+        "worst": 1239,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.500326,
+        "lat": 31.247681,
+        "dist": {
+          "market": 1471,
+          "pharmacy": 1149,
+          "school": 1318
+        },
+        "worst": 1149,
+        "level": 1,
+        "bottleneck": "market"
+      },
+      {
+        "lng": 121.498402,
+        "lat": 31.24959,
+        "dist": {
+          "market": 1313,
+          "pharmacy": 1307,
+          "school": 1763
+        },
+        "worst": 1307,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.498723,
+        "lat": 31.249137,
+        "dist": {
+          "market": 1494,
+          "pharmacy": 1642,
+          "school": 1852
+        },
+        "worst": 1494,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.4983,
+        "lat": 31.250126,
+        "dist": {
+          "market": 1255,
+          "pharmacy": 1559,
+          "school": 1221
+        },
+        "worst": 1221,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.500078,
+        "lat": 31.250916,
+        "dist": {
+          "market": 1824,
+          "pharmacy": 1536,
+          "school": 1900
+        },
+        "worst": 1536,
+        "level": 2,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.501342,
+        "lat": 31.249639,
+        "dist": {
+          "market": 1188,
+          "pharmacy": 1693,
+          "school": 1437
+        },
+        "worst": 1188,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.497982,
+        "lat": 31.251368,
+        "dist": {
+          "market": 1341,
+          "pharmacy": 1774,
+          "school": 1471
+        },
+        "worst": 1341,
+        "level": 1,
+        "bottleneck": "pharmacy"
+      },
+      {
+        "lng": 121.501524,
+        "lat": 31.250025,
+        "dist": {
+          "market": 1204,
+          "pharmacy": 1178,
+          "school": 1208
+        },
+        "worst": 1178,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.501275,
+        "lat": 31.248538,
+        "dist": {
+          "market": 1196,
+          "pharmacy": 1292,
+          "school": 1684
+        },
+        "worst": 1196,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.498949,
+        "lat": 31.247489,
+        "dist": {
+          "market": 1631,
+          "pharmacy": 1422,
+          "school": 1939
+        },
+        "worst": 1422,
+        "level": 1,
+        "bottleneck": "school"
+      },
+      {
+        "lng": 121.500719,
+        "lat": 31.249006,
+        "dist": {
+          "market": 1173,
+          "pharmacy": 1176,
+          "school": 1243
+        },
+        "worst": 1173,
+        "level": 1,
+        "bottleneck": "school"
+      }
+    ],
+    "worstPoint": {
+      "lng": 121.500582,
+      "lat": 31.248401,
+      "dist": {
+        "market": 1860,
+        "pharmacy": 1664,
+        "school": 1773
+      },
+      "worst": 1664,
+      "level": 2,
+      "bottleneck": "market"
+    },
+    "patches": [
+      {
+        "size": 24,
+        "members": 24,
+        "areaM2": 345600,
+        "centroid": {
+          "lng": 121.499272,
+          "lat": 31.249576
+        },
+        "avgGap": 1302,
+        "maxGap": 1573,
+        "worstAt": {
+          "lng": 121.498566,
+          "lat": 31.249406,
+          "dist": {
+            "market": 1734,
+            "pharmacy": 1654,
+            "school": 1573
+          },
+          "worst": 1573,
+          "level": 2,
+          "bottleneck": "market"
+        },
+        "severity": 31241
+      },
+      {
+        "size": 23,
+        "members": 23,
+        "areaM2": 331200,
+        "centroid": {
+          "lng": 121.49917,
+          "lat": 31.249662
+        },
+        "avgGap": 1308,
+        "maxGap": 1664,
+        "worstAt": {
+          "lng": 121.500582,
+          "lat": 31.248401,
+          "dist": {
+            "market": 1860,
+            "pharmacy": 1664,
+            "school": 1773
+          },
+          "worst": 1664,
+          "level": 2,
+          "bottleneck": "market"
+        },
+        "severity": 30091
+      }
+    ],
+    "bottleneckCount": {
+      "market": 16,
+      "pharmacy": 10,
+      "school": 21
+    },
+    "missingRate": {
+      "market": 26.07,
+      "pharmacy": 26.7,
+      "school": 28.77
+    },
+    "centerStatus": {
+      "isGap": false,
+      "level": 0,
+      "worst": 540,
+      "dist": {
+        "market": 320,
+        "pharmacy": 280,
+        "school": 540
+      }
+    }
+  }
+}
