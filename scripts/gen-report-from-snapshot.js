@@ -3,7 +3,7 @@
  * docs/真实对比测试报告.md。
  *
  * 设计原则：本脚本只"复刻"前端 Dashboard.calcScore 与盲区口径（算法确定性，
- * 与浏览器端结果完全一致），不引入任何新逻辑，保证离线评审数字 == 线上体检数字。
+ * 与浏览器端结果完全一致），不引入任何新逻辑，保证离线复现结果与线上体检完全一致。
  *
  * 用法： node scripts/gen-report-from-snapshot.js
  */
@@ -275,7 +275,7 @@ if (hasGap) {
 md.push(`3. **λ 标定保证步行距离可信**：λ=${lambda.toFixed(2)} 处于合理区间（真实路网通常 1.1~1.5），盲区「1 km 步行」判定未低估绕行。`);
 md.push('4. **工程可复现**：全部计算确定性，更换社区/数据后重跑 `node scripts/gen-report-from-snapshot.js` 即得新报告。\n');
 
-md.push('## 七、复现方法（评委/开发者自助验证）\n');
+md.push('## 七、复现方法（开发者自助验证）\n');
 md.push('```bash');
 md.push('# 1) 本地起服务（勿用 file:// 直接打开，fetch 会被浏览器拦截）');
 md.push('cd D:\\AI\\BaiDu-2026');

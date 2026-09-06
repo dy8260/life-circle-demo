@@ -4,7 +4,7 @@
  * 用途：生成一组「贴合真实形态」的仿真数据，可用于本地开发调试或临时替换示例快照。
  * 这是仿真数据，非实时抓取。⚠️ 注意：运行本脚本会用
  * 陆家嘴仿真数据覆盖 data/sample-community.json，从而冲掉已内置的真实北京望京数据，
- * 赛前请勿误跑；正式参赛以真实体检导出的 sample-community.json 为准（见 data/README.md）。
+ * 请勿误跑；正式示例数据以真实体检导出的 sample-community.json 为准（见 data/README.md）。
  *
  * 运行：node scripts/gen-sample-data.js
  * 输出：data/sample-community.json
@@ -203,7 +203,7 @@ const snapshot = {
         name: '陆家嘴示例社区（离线演示数据）',
         city: '上海市',
         address: CENTER.address,
-        note: '本文件为仿真实例数据，用于无 AK / 离线演示。真实数据已内置（北京·望京），运行本脚本会覆盖为仿真数据，赛前请勿误跑。',
+        note: '本文件为仿真实例数据，用于无 AK / 离线预览。真实数据已内置（北京·望京），运行本脚本会覆盖为仿真数据，请勿误跑。',
         generatedBy: 'scripts/gen-sample-data.js',
         generatedAt: new Date().toISOString().slice(0, 10)
     },
