@@ -13,6 +13,9 @@
     /** 初始化：百度 API 加载完毕时回调 */
     function init() {
         if (global.__inited) return;  // 幂等：避免 race 双触发
+        // 置位放在最前，保证 init 内部后续步骤不会因并发二次进入。
+        // ⚠ 若下方抛错，由调用方 tryInit() 的 catch 负责复位 __inited = false，
+        //   否则 SDK 后续真正就绪时回调会被这行幂等判断挡掉，整页再也无法初始化。
         global.__inited = true;
         // 1. 地图实例
         map = new BMapGL.Map('map');
@@ -206,16 +209,14 @@
             });
         }
 
-        // HUD：点击收起 / 展开（默认展开前 4 项：版本+缩放+经纬度，路网项附带显示）
+        // HUD：点击收起 / 展开（收起后只保留经度 / 纬度，隐藏路网进度）
         const hud = document.getElementById('hud');
         if (hud) {
             hud.addEventListener('click', () => hud.classList.toggle('collapsed'));
         }
 
-        // 实时监听地图：缩放 + 鼠标移动
+        // 实时监听地图：鼠标移动 → 更新 HUD 经纬度
         if (typeof BMapGL !== 'undefined') {
-            // init 阶段已经在初始化 map；缩放事件
-            map.addEventListener('zoomend', () => updateHud());
             map.addEventListener('mousemove', (e) => {
                 const lngEl = document.getElementById('hudLng');
                 const latEl = document.getElementById('hudLat');
@@ -264,13 +265,9 @@
         });
     }
 
-    /** 更新 HUD 中的"缩放级别"和"路网采样" */
+    /** 更新 HUD 中的"路网采样进度"（经度 / 纬度由 mousemove 事件直接更新） */
     function updateHud() {
         if (!map || typeof BMapGL === 'undefined') return;
-        const zoomEl = document.getElementById('hudZoom');
-        if (zoomEl && map.getZoom) {
-            zoomEl.textContent = String(map.getZoom());
-        }
         const pathEl = document.getElementById('hudPath');
         if (pathEl) {
             const cnt = (currentSamples && currentSamples.length) || 0;
@@ -879,22 +876,68 @@
         setTimeout(() => div.remove(), 2200);
     }
 
-    /** 暴露给百度地图 API 回调：地图脚本加载完成后触发 init（在线模式） */
-    global.__bmapReady = init;
+    /** 百度地图 GL SDK 是否真正可用
+     *
+     *  ⚠ 这是「偶发 BMapGL.Map is not a constructor」的根因所在：
+     *    百度是**两段式加载**——第一段引导脚本（api?type=webgl&v=3.0&callback=...）一执行
+     *    就立刻 `window.BMapGL = window.BMapGL || {}`，建出一个**空壳命名空间**（此时里面
+     *    只有 apiLoad，没有 Map / Point）；真正的 SDK 由它再注入的第二段 getscript
+     *    （约 1.2MB）下载并执行完毕后，才把 BMapGL.Map 挂上去，最后回调 __bmapReady。
+     *    所以「typeof BMapGL !== 'undefined'」为真 **不等于** SDK 可用，必须直接查构造器本身。
+     */
+    function bmapReady() {
+        return typeof global.BMapGL !== 'undefined'
+            && typeof global.BMapGL.Map === 'function'
+            && typeof global.BMapGL.Point === 'function';
+    }
+
+    /** 带就绪守卫的 init 入口
+     *  @returns {boolean} true = 已处理完毕（成功或已放弃重试）；false = SDK 未就绪，交给轮询继续等
+     */
+    function tryInit() {
+        if (global.__inited) return true;
+        if (!bmapReady()) return false;          // 空壳命名空间 / SDK 仍在下载 → 继续等
+        try {
+            init();
+            return true;
+        } catch (e) {
+            // ⚠ 必须复位：init() 在 new BMapGL.Map 之前就已置位 __inited，
+            //    不复位的话，SDK 稍后真正就绪时回调 init 会被幂等判断直接 return，
+            //    导致地图 / 事件绑定 / 省市联动 / 图表全部不初始化，且刷新前无法自愈。
+            global.__inited = false;
+            // 已经就绪仍然失败，说明不是加载时序问题（多半是 DOM 缺失等），
+            // 不再重试，避免重复 bindEvents 造成事件绑多遍。
+            global.__initFailed = true;
+            global.__diag && global.__diag('init failed: ' + (e.message || e), 'error');
+            return true;
+        }
+    }
+
+    /** 暴露给百度地图 API 回调：SDK 真正加载完成时触发（在线模式） */
+    global.__bmapReady = tryInit;
 
     // 对比模式需要的可复用体检工具
     global.app = {
         runOneStandalone: (addr, onProgress) => runOneStandalone(addr, onProgress)
     };
-    // 兜底：如果百度 API 脚本比我们的 app.js 先到达并执行（race condition），
-    //      百度脚本里的 `window.__bmapReady(...)` 调用会因当时仍是 noop 而失联。
-    //      此处再做一次"如果 BMapGL 已存在，立即调 init"的补救。
-    //      注意：不要提前设 __inited，让 init() 自己负责置位（init 第一句会判 __inited）。
-    setTimeout(function () {
-        if (typeof global.BMapGL !== 'undefined' && !global.__inited) {
-            try { init(); } catch (e) {
-                global.__diag && global.__diag('init race-rescue failed: ' + (e.message || e));
+
+    // 兜底：百度脚本是动态 async 注入的，可能在 app.js 之前就已执行完毕并调用了 callback，
+    //       而当时 __bmapReady 还是 noop → init 永远不会被触发（race condition）。
+    //       这里用「轮询等待 SDK 真正就绪 + 超时告警」替代原来的单次 50ms 定时器：
+    //       50ms 在冷启动 / 慢网络下几乎必然落在第二段 getscript 的下载窗口内，
+    //       正是该报错偶发出现的直接原因。
+    (function waitBmapReady() {
+        var deadline = Date.now() + 15000;
+        (function poll() {
+            if (global.__initFailed || tryInit()) return;
+            if (Date.now() > deadline) {
+                global.__diag && global.__diag(
+                    '❌ 百度地图 SDK 15s 内未就绪：请检查网络 / AK 是否有效 / Referer 白名单是否含当前域名' +
+                    '（注意 script.onerror 只覆盖第一段引导脚本，第二段 getscript 失败不会触发）',
+                    'error');
+                return;
             }
-        }
-    }, 50);
+            setTimeout(poll, 100);
+        })();
+    })();
 })(window);
