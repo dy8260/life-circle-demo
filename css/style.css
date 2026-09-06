@@ -289,7 +289,7 @@ body::before {
     color: var(--text-sub);
 }
 
-/* 实时 HUD：右上角实时坐标 / 缩放 / 版本 */
+/* 实时 HUD：右上角经度 / 纬度 / 路网采样进度 */
 .hud {
     display: flex; gap: 6px;
     align-items: stretch;
@@ -320,6 +320,7 @@ body::before {
     font-weight: 600; padding-top: 3px;
     font-variant-numeric: tabular-nums;
 }
+/* 收起态：只保留前两项（经度 / 纬度），隐藏路网进度 */
 .hud.collapsed .hud-row:not(:first-child):not(:nth-child(2)) { display: none; }
 .hud.collapsed { padding: 6px 10px; }
 
@@ -1050,7 +1051,7 @@ body::before {
 /* ≤1280px：横向压缩布局 */
 @media (max-width: 1280px) {
     .topbar { grid-template-columns: 280px 1fr; padding: 10px 14px; }
-    .topbar .hud { display: none; }      /* 紧凑模式下隐藏 HUD，留给实时坐标小屏 */
+    .topbar .hud { display: none; }      /* 窄屏隐藏 HUD，避免顶栏拥挤溢出 */
     .layout { grid-template-columns: 1fr 320px; padding: 10px; }
     .addr-bar { padding: 0 8px; }
     .addr-bar input#addrInput,

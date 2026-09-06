@@ -8,6 +8,33 @@
 <!-- 用内联 1×1 SVG 兼做 favicon，避免浏览器默认请求 /favicon.ico 产生 404 -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%233a7afe'/><circle cx='32' cy='32' r='14' fill='none' stroke='white' stroke-width='3'/></svg>" />
 <link rel="stylesheet" href="css/style.css" />
+
+<!-- 控制台静默（默认开启）
+     用途：生产环境默认关闭调试输出，保持浏览器控制台整洁；
+          页面面向用户的提示走 toast 与 DOM，不经过控制台，因此不受影响。
+     排障时三选一即可恢复全部输出：
+       ① 本文件下方把 DEBUG 改成 true（永久）
+       ② 访问地址加 ?debug=1（临时，如 http://localhost:8080/?debug=1）
+       ③ 控制台执行 localStorage.setItem('__DEBUG','1') 后刷新
+     静默期间错误仍会被 __diag 收集到 window.__diagErrors，需要时可直接查看。
+     ⚠ 必须放在所有其它脚本之前，才能覆盖后续脚本的 console 调用。 -->
+<script>
+(function () {
+    var DEBUG = false;   // ← 排障总开关：改成 true 即恢复全部控制台输出
+    var on = DEBUG || /[?&]debug=1(?:&|$)/.test(location.search);
+    if (!on) { try { on = localStorage.getItem('__DEBUG') === '1'; } catch (e) {} }
+    if (on) { window.__DEBUG = true; return; }
+    var noop = function () {};
+    var keys = ['log', 'info', 'debug', 'dir', 'dirxml', 'table', 'trace',
+                'group', 'groupCollapsed', 'groupEnd',
+                'warn', 'error', 'assert', 'count', 'time', 'timeEnd',
+                'profile', 'profileEnd'];
+    for (var i = 0; i < keys.length; i++) {
+        if (console && typeof console[keys[i]] === 'function') console[keys[i]] = noop;
+    }
+    window.__consoleMuted = true;
+})();
+</script>
 </head>
 <body>
 
@@ -61,10 +88,8 @@
     </span>
   </div>
 
-  <!-- 实时 HUD：替代原先静态 badge；显示鼠标坐标/缩放/路网覆盖/版本号（开发者属性） -->
+  <!-- 实时 HUD：替代原先静态 badge；只显示鼠标经度 / 纬度 / 路网采样进度（点击可收起） -->
   <div class="hud" id="hud" title="悬停地图查看实时坐标；点击收起">
-    <span class="hud-row"><b>版本</b><i>v3.1.0</i></span>
-    <span class="hud-row"><b>缩放</b><i id="hudZoom">14</i></span>
     <span class="hud-row"><b>经度</b><i id="hudLng">--.----</i></span>
     <span class="hud-row"><b>纬度</b><i id="hudLat">--.----</i></span>
     <span class="hud-row"><b>路网</b><i id="hudPath">--</i></span>
@@ -228,6 +253,7 @@
 (function () {
     'use strict';
     var _errs = [];
+    window.__diagErrors = _errs;   // 控制台被静默后，仍可用 __diagErrors 查看全部诊断记录
     function show(msg, kind) {
         if (kind === 'error' && (msg === 'Script error.' || !msg)) return;
         _errs.push({ msg: msg, kind: kind || 'log', t: Date.now() });
