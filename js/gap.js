@@ -5,6 +5,8 @@
  * 【要解决的问题】
  *   「15 分钟社区生活圈」配套标准原文：
  *     「系统能否准确识别出周边 1 公里内没有菜市场、药店或小学的『服务盲区』点位」
+ *   注：配套标准原文为“小学”；实际检索关键词扩展为小学/幼儿园/中学以提升召回，
+ *       UI 统一简称为“学校”。
  *
  *   "周边 1 公里" 在生活圈语境下指**步行 1 公里**，不是直线 1 公里。
  *   直接算直线距离会系统性高估可达性（绕行、过街天桥、封闭小区、断头路都会拉长实际路程），
@@ -14,7 +16,7 @@
  *   ① 栅格采样  —— 在 15 分钟等时圈多边形内按 gridStepMeters 打栅格，得到待判定点位集合
  *   ② λ 标定    —— 抽少量锚点调真实 WalkingRoute，测「步行距离 / 直线距离」绕行系数 λ
  *   ③ 距离场插值 —— 用「直线最近距离 × λ」外推全栅格的步行距离场（零 API 消耗的空间插值）
- *   ④ 盲区判定   —— 菜市场 / 药店 / 小学三类步行距离**全部** > 1000m 的点 → 盲区点
+ *   ④ 盲区判定   —— 菜市场 / 药店 / 学校三类步行距离**全部** > 1000m 的点 → 盲区点
  *   ⑤ 连通聚合   —— 栅格 4 邻域连通分量聚成"连片盲区斑块"，按严重度排序取 Top-N
  *
  * 【为什么是 1 次 API 都不多花地铺满全图？】
@@ -105,7 +107,7 @@
                 const g = resultByKey && resultByKey[k];
                 return g && Array.isArray(g.items);
             });
-            if (keys.length === 0) return empty('未检索到菜市场/药店/小学数据，跳过盲区分析');
+            if (keys.length === 0) return empty('未检索到菜市场/药店/学校数据，跳过盲区分析');
 
             const indexes = {};
             const poiCount = {};
@@ -116,7 +118,7 @@
                 if (poiCount[k] === 0) missing.push(k);
             });
             if (missing.length > 0) {
-                const nameMap = { market: '菜市场', pharmacy: '药店', school: '小学/学校', hospital: '医院', store: '商超', bus: '公交站' };
+                const nameMap = { market: '菜市场', pharmacy: '药店', school: '学校', hospital: '医院', store: '商超', bus: '公交站' };
                 const names = missing.map(k => nameMap[k] || k).join('、');
                 return empty(`未检索到 ${names} POI，无法判定服务盲区`);
             }

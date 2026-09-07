@@ -163,7 +163,7 @@
                 lines.push(` - ${x.cat.name}: ${x.n} 处  [${x.kind}]`);
             });
             lines.push(``);
-            lines.push(`服务盲区识别（1 km 内无菜市场 / 药店 / 小学）：`);
+            lines.push(`服务盲区识别（1 km 内无菜市场 / 药店 / 学校）：`);
             if (!gap || !gap.enabled) {
                 lines.push(` - 未执行${gap && gap.reason ? '（' + gap.reason + '）' : ''}`);
             } else {
@@ -186,6 +186,8 @@
      *
      * 口径严格对齐「15 分钟社区生活圈」公共服务设施配套标准：
      *   「识别出周边 1 公里内没有菜市场、药店或小学的『服务盲区』点位」
+     * 配套标准原文为“小学”；实际检索关键词扩展为小学/幼儿园/中学以提升召回，
+     * 报告与 UI 统一简称为“学校”。
      * 这里的"1 公里"按**步行距离**计（直线距离 × 路网绕行系数 λ），
      * 否则会把需要绕行 1.5 km 才能到的点误判成"有配套"。
      *
@@ -205,7 +207,6 @@
             const c = POI_CATEGORIES.find(x => x.key === k);
             return c ? c.name : k;
         };
-        const checkNames = (p.checkKeys || []).map(nameOf).join(' / ');
         const marks = ['①', '②', '③', '④', '⑤'];
 
         const html = [head];
@@ -213,11 +214,18 @@
         html.push(`
             <p>本节基于「15 分钟社区生活圈」公共服务设施配套标准，识别<strong>服务盲区点位</strong>：
             以 ${p.gridStepMeters || 120} m 为步长在 15 分钟等时圈内均匀布设 <b>${gap.gridCount}</b> 个分析栅格，
-            逐个计算到 <b>${escapeHtml(checkNames)}</b> 三类的<strong>步行</strong>最近距离；
+            逐个计算到 <b>菜市场 / 药店 / 学校</b> 三类的<strong>步行</strong>最近距离；
             当三类距离<strong>全部超过 ${R} m</strong> 时，该点位判定为服务盲区。</p>`);
 
         if (gap.gapCount === 0) {
-            html.push(`<p class="gap-none">🎉 未发现服务盲区：范围内 ${gap.gridCount} 个分析点位，均可在 ${R} m 步行距离内到达${escapeHtml(checkNames)}。</p>`);
+            const keys = (p.checkKeys || []).filter(k => gap.missingRate && gap.missingRate[k] !== undefined);
+            const weakest = keys.length
+                ? keys.reduce((max, k) => (gap.missingRate[k] > gap.missingRate[max] ? k : max), keys[0])
+                : null;
+            const weakestHint = weakest && gap.missingRate[weakest] > 0
+                ? `（单类如${nameOf(weakest)}仍有 ${(gap.missingRate[weakest] * 100).toFixed(0)}% 覆盖薄弱区，见上方明细）`
+                : '（单类覆盖率均较好，无显著薄弱项）';
+            html.push(`<p class="gap-none">🎉 未发现连片服务盲区：范围内 ${gap.gridCount} 个分析点位，没有「菜市场 / 药店 / 学校」三类配套同时超出 ${R} m 步行距离的点位${weakestHint}。</p>`);
         } else {
             html.push(`
             <p>共识别到 <b style="color:#ff5470">${gap.gapCount}</b> 个盲区点位，
