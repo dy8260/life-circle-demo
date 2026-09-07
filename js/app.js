@@ -411,8 +411,17 @@
     function _renderCompareMap(resA, resB) {
         if (!resA || !resB) return;
         try {
-            // 1. 清空地图上旧的覆盖层（上次对比残留 + 单地点模式残留）
+            // 1. 清空地图上旧的覆盖层（上次对比残留 + 单地点模式残留），
+            //    并改为对比模式配色图例：🔵 A 地址 / 🟠 B 地址
             clearCompareOverlays(true);
+            const legendList = document.getElementById('legendList');
+            const legendTitle = document.querySelector('.legend h4');
+            if (legendTitle) legendTitle.textContent = '对比图例';
+            if (legendList) {
+                legendList.innerHTML =
+                    '<li><span class="dot" style="background:#5b9bff"></span>🔵 A 地址（蓝）</li>' +
+                    '<li><span class="dot" style="background:#ff9f43"></span>🟠 B 地址（橙）</li>';
+            }
 
             // 2. 渲染 A（蓝色系，默认色）
             _renderOneCompare(resA, '#5b9bff', '#3a7afe');

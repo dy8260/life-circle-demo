@@ -112,7 +112,7 @@
          * @param {BMapGL.Point} center
          * @param {Array} polygonPts
          * @param {(p:number,msg:string)=>void} onProgress
-         * @returns {Object} { categoryKey: { ...meta, items: [...] } }
+         * @returns {Object} { categoryKey: { ...meta, items: [...] } }，items 已按 polygonPts 精确过滤
          */
         fetchAll: async function (center, polygonPts, onProgress) {
             if (!polygonPts || polygonPts.length < 3) return {};
@@ -177,7 +177,7 @@
 
                 // 第二阶段兜底：仅当本次整体「有数据」时，才对个别空类别补一次 nearby 检索。
                 // 全部为空时 globalTotal=0，直接跳过 → 不再疯狂补请求。
-                const globalTotal = all.reduce((s, r) => s + r.items.length, 0);
+                let globalTotal = all.reduce((s, r) => s + r.items.length, 0);
                 if (globalTotal > 0) {
                     let sw, ne, cLat, cLng, rMeters;
                     try {
@@ -199,6 +199,17 @@
                         }
                     }
                 }
+
+                // 精确过滤：返回结果只保留在等时圈多边形内的 POI。
+                // 检索时用了外扩 12% 的 bounds，边界外的点必须剔除，否则配套统计 / 图例 / 柱状图
+                // 与地图 marker 数量会出现不一致（图例原先只数了上图的 30 个）。
+                POI_CATEGORIES.forEach(cat => {
+                    const g = out[cat.key];
+                    if (!g || !g.items) return;
+                    g.items = g.items.filter(item => pointInPolygon(item.point, polygonPts));
+                });
+                globalTotal = POI_CATEGORIES.reduce((s, cat) => s + (out[cat.key] ? out[cat.key].items.length : 0), 0);
+
                 return { out, globalTotal };
             };
 
@@ -434,6 +445,10 @@
 
             const legendList = document.getElementById('legendList');
             if (legendList) legendList.innerHTML = '';
+            // 单地址模式渲染时，把图例标题恢复为「配套图例」
+            // （对比模式会在 _renderCompareMap 里改成「对比图例」）
+            const legendTitle = document.querySelector('.legend h4');
+            if (legendTitle) legendTitle.textContent = '配套图例';
 
             const polygonPts = polygon ? polygon.getPath() : null;
 
@@ -468,8 +483,10 @@
                 });
 
                 if (legendList) {
+                    // 图例显示精确过滤后的总数（与配套统计 / 柱状图保持一致）；
+                    // 地图 marker 仍受 30 个上限保护，避免密集覆盖。
                     legendList.insertAdjacentHTML('beforeend',
-                        `<li><span class="dot" style="background:${cat.color}"></span>${cat.icon} ${cat.name} <small style="color:#8a9ec0">${items.length}</small></li>`);
+                        `<li><span class="dot" style="background:${cat.color}"></span>${cat.icon} ${cat.name} <small style="color:#8a9ec0">${filtered.length}</small></li>`);
                 }
             });
         },

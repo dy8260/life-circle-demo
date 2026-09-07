@@ -31,7 +31,9 @@
             const indicator = POI_CATEGORIES.map(c => ({ name: c.name, max: Math.max(POI_THRESHOLD[c.key].ideal + 2, 6) }));
             radar.setOption({
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'item' },
+                // appendToBody: tooltip 挂到 <body> 下，脱离图表容器的层叠上下文，
+                // 避免被相邻面板（评分卡/图例卡）盖住；confine: 限制在视口内不出边。
+                tooltip: { trigger: 'item', appendToBody: true, confine: true },
                 radar: {
                     indicator,
                     center: ['50%', '52%'],
@@ -53,7 +55,7 @@
             // 柱状图
             bar.setOption({
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, appendToBody: true, confine: true },
                 grid: { left: 48, right: 14, top: 14, bottom: 36 },
                 xAxis: {
                     type: 'category',
@@ -170,7 +172,9 @@
          * @param {Object} gap  GapFinder.analyze() 的返回值
          *
          * 判定口径（对齐「15 分钟生活圈」配套标准）：
-         *   菜市场 / 药店 / 小学 三类的步行距离**全部** > 1 km 的点 → 服务盲区点位
+         *   菜市场 / 药店 / 学校 三类的步行距离**全部** > 1 km 的点 → 服务盲区点位
+         * 注：配套标准原文为“小学”，实际检索关键词扩展为小学/幼儿园/中学以提升召回，
+         *     UI 统一简称为“学校”。
          */
         renderGap: function (gap) {
             const box = document.getElementById('gapBody');
@@ -179,7 +183,7 @@
 
             if (!gap || !gap.enabled) {
                 box.innerHTML = '<p class="gap-empty muted">完成体检后自动识别：15 分钟步行范围内，' +
-                    '<b>1 公里内没有菜市场 / 药店 / 小学</b>的点位。</p>';
+                    '<b>1 公里内没有菜市场 / 药店 / 学校</b>的点位。</p>';
                 if (btn) { btn.disabled = true; btn.classList.remove('active'); btn.textContent = '显示点位'; }
                 this.renderGapLegend(null);
                 return;
@@ -263,7 +267,13 @@
                 });
                 html.push('</div>');
             } else if (gap.gapCount === 0) {
-                html.push('<p class="gap-none">🎉 未发现服务盲区：范围内所有点位 1 km 内均可到达菜市场 / 药店 / 小学。</p>');
+                const weakest = keys.length && gap.missingRate
+                    ? keys.reduce((max, k) => (gap.missingRate[k] > gap.missingRate[max] ? k : max), keys[0])
+                    : null;
+                const weakestHint = weakest && gap.missingRate[weakest] > 0
+                    ? `（单类如${nameOf(weakest)}仍有 ${(gap.missingRate[weakest] * 100).toFixed(0)}% 覆盖薄弱区，见上方明细）`
+                    : '（单类覆盖率均较好，无显著薄弱项）';
+                html.push(`<p class="gap-none">🎉 未发现连片服务盲区：范围内没有「菜市场 / 药店 / 学校」三类配套同时超出 1 km 步行距离的点位${weakestHint}。</p>`);
             }
 
             // —— 参数透明化（便于复现 / 答辩自查） ——
@@ -307,18 +317,20 @@
             this._lastSingle = resultByKey || {};   // 缓存最近一次单地址数据，供 exitCompare 还原
 
             // 雷达：实际 vs 最低 vs 理想
+            // 实际数量不再封顶，保持与左侧图例、右侧柱状图/配套统计口径一致
             const actualData = POI_CATEGORIES.map(c => {
                 const g = resultByKey[c.key];
-                const n = g ? g.items.length : 0;
-                return Math.min(n, POI_THRESHOLD[c.key].ideal + 2);
+                return g && g.items ? g.items.length : 0;
             });
             const minLine  = POI_CATEGORIES.map(c => POI_THRESHOLD[c.key].min);
             const idealLine = POI_CATEGORIES.map(c => POI_THRESHOLD[c.key].ideal);
 
-            // 重新构建 indicator，避免初始化与更新时尺寸不一致导致空白
+            // 重新构建 indicator，避免初始化与更新时尺寸不一致导致空白；
+            // max 取真实最大值、理想值、最低值中的最大者，保证雷达刻度与真实数量对齐
+            const dataMax = Math.max(...actualData, ...idealLine, ...minLine, 6);
             const indicator = POI_CATEGORIES.map(c => ({
                 name: c.name,
-                max: Math.max(POI_THRESHOLD[c.key].ideal + 2, 6)
+                max: dataMax
             }));
             this.radarInst.setOption({
                 radar: {
@@ -465,7 +477,12 @@
             if (this.radarInst) {
                 const valsA = this._radarVals(rA.resultByKey);
                 const valsB = this._radarVals(rB.resultByKey);
+                // 对比模式刻度上限取 A/B 真实最大，避免单地址小刻度导致数值溢出
+                const compareMax = Math.max(...valsA, ...valsB, 6);
                 this.radarInst.setOption({
+                    radar: {
+                        indicator: POI_CATEGORIES.map(c => ({ name: c.name, max: compareMax }))
+                    },
                     legend: {
                         data: ['A·实际', 'B·实际'],
                         top: 2, right: 6,
@@ -572,7 +589,7 @@
                 <div class="gc-col ${(ra !== null && rb !== null && rb < ra) ? 'win' : ''}">${col('B', gapB)}</div>
             </div>
             <p class="gc-note">${note}</p>
-            <p class="gap-note">判定口径：15 分钟步行范围内，菜市场 / 药店 / 小学 三类步行距离均 > ${params.radiusMeters || 1000} m 的点位（地图点位图仅展示单地址模式）。</p>`;
+            <p class="gap-note">判定口径：15 分钟步行范围内，菜市场 / 药店 / 学校 三类步行距离均 > ${params.radiusMeters || 1000} m 的点位（地图点位图仅展示单地址模式）。</p>`;
         },
 
         /** 迷你评分卡（A/B 共用） */
@@ -592,11 +609,11 @@
             </div>`;
         },
 
-        /** 雷达数值（封顶 ideal+2，与单地址口径一致） */
+        /** 雷达数值（与单地址/图例/柱状图口径一致：用真实数量，不封顶） */
         _radarVals: function (resultByKey) {
             return POI_CATEGORIES.map(c => {
                 const g = resultByKey ? resultByKey[c.key] : null;
-                return Math.min(g && g.items ? g.items.length : 0, POI_THRESHOLD[c.key].ideal + 2);
+                return g && g.items ? g.items.length : 0;
             });
         },
 
