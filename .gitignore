@@ -23,16 +23,5 @@ config.local.js
 # Docker 运行环境变量（含真 key，绝不提交/推送；.env.example 保留作模板）
 .env
 
-# 含明文凭据 / 本地绝对路径的文件，禁止提交与推送
-相关资料.txt
-HOWTO-开发流程与回滚.md
-# 本地阶段性分析文档（含本地绝对路径，不纳入版本库）
-docs/*符合度分析.md
-
-# 本地未公开草稿，不纳入版本库
-docs/作品介绍.md
-docs/演示视频脚本.md
-docs/视频配音稿.md
-
 # 注意：以下「必须保留」请不要加入忽略
 #   index.html  css/  js/  lib/  README.md  docs/

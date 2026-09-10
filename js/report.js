@@ -115,7 +115,7 @@
             // 服务盲区识别（核心指标，独立成章）
             html.push(renderGapSection(gap));
 
-            // 改造建议
+            // 改造建议（方案D：数据驱动，按真实斑块生成带坐标的落地建议）
             html.push(`
             <div class="report-section">
                 <h4>⑤ 改造建议</h4>
@@ -126,10 +126,42 @@
             if (lacking.length > 0) {
                 html.push(`<li><strong>提升薄弱类：</strong>针对 ${lacking.map(x => `${x.cat.name}(${x.n} 处)`).join('、')}，可通过引入品牌连锁或社区合作方式来提高密度。`);
             }
-            html.push(`<li><strong>慢行系统优化：</strong>等时圈非圆形，建议在等时圈"凹陷"区域（步行绕行严重的方向）研究增设人行天桥、地下通道或人行道拓宽。`);
-            html.push(`<li><strong>老年人友好：</strong>80 m/min 的步行速度参照老年慢节奏；可在公交站、医院、菜市场附近设置无障碍坡道与休息座椅。`);
-            html.push(`<li><strong>数据回流：</strong>本系统可在街道办、社区居委层面常态化运行，每年更新 POI 数据，对改造效果做闭环评估。</ol>
-            </div>`);
+
+            // 方案D：每个 Top-N 盲区斑块一条带坐标的落地建议
+            const _nameOf = (k) => {
+                const c = POI_CATEGORIES.find(x => x.key === k);
+                return c ? c.name : k;
+            };
+            const _marks = ['①', '②', '③', '④', '⑤'];
+            const _R = (gap.params && gap.params.radiusMeters) || 1000;
+            (gap.patches || []).forEach((pt, i) => {
+                const t = _nameOf(pt.dominantType);
+                const avgTxt = (pt.avgWalkToDominant != null && isFinite(pt.avgWalkToDominant))
+                    ? Math.round(pt.avgWalkToDominant) + ' m' : '—';
+                html.push(`<li><strong>斑块${_marks[i] || (i + 1)}落地建议：</strong>在
+                    (${pt.centroid.lat.toFixed(4)}, ${pt.centroid.lng.toFixed(4)}) 周边补建
+                    <b>${t}</b>，预计消除约 ${(pt.areaM2 / 1e4).toFixed(2)} 公顷盲区
+                    （该片居民当前最近${t}步行约 ${avgTxt}）。</li>`);
+            });
+
+            // 无斑块（零盲区）兜底：用最薄弱类补一条数据驱动建议，避免⑤ 变空
+            if (!gap.patches || gap.patches.length === 0) {
+                const gk = (gap.params.checkKeys || []).filter(k => gap.missingRate && gap.missingRate[k] > 0);
+                if (gk.length) {
+                    const wk = gk.reduce((a, b) => gap.missingRate[a] > gap.missingRate[b] ? a : b);
+                    html.push(`<li><strong>覆盖提升：</strong>虽未发现"三类全缺"的重度盲区，
+                        但<b>${_nameOf(wk)}</b>仍有 ${(gap.missingRate[wk] * 100).toFixed(0)}% 点位步行超 ${_R} m，
+                        建议优先在该方向加密布点。</li>`);
+                }
+            }
+
+            // 慢行系统优化（去掉无条件"非圆形"断言）
+            html.push(`<li><strong>慢行系统优化：</strong>若步行路径存在明显绕行、等时圈出现"凹陷"方向，建议研究增设人行天桥、地下通道或人行道拓宽。</li>`);
+            // 无障碍友好（修正 80 m/min 错误说法）
+            html.push(`<li><strong>无障碍友好：</strong>采用健康成年人平均步速 80 m/min（约 4.8 km/h）绘制等时圈；可在公交站、医院、菜市场附近设置无障碍坡道与休息座椅。</li>`);
+            // 数据回流（通用产品化建议，保留）
+            html.push(`<li><strong>数据回流：</strong>本系统可在街道办、社区居委层面常态化运行，每年更新 POI 数据，对改造效果做闭环评估。</li>`);
+            html.push('</ol></div>');
 
             // 渲染
             const el = document.getElementById('reportSingle');

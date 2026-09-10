@@ -144,7 +144,7 @@
 
             // ── ⑤ 连通斑块聚合 ───────────────────────────────────────────
             report(0.92, '聚合连片盲区斑块');
-            const patches = this._patches(grid, cls.isGap, cls.worst, CFG);
+            const patches = this._patches(grid, cls.isGap, cls.worst, cls.bottleneck, walk, CFG);
 
             report(1, '服务盲区分析完成');
 
@@ -572,7 +572,7 @@
          * 栅格 4 邻域连通分量 → 连片盲区斑块
          * 单点噪声（< 3 格）直接丢弃，避免把零星误判当成"一片盲区"
          */
-        _patches: function (grid, isGap, worst, CFG) {
+        _patches: function (grid, isGap, worst, bottleneck, walk, CFG) {
             const cells = grid.cells;
             const keyOf = (r, c) => r * 1000000 + c;
 
@@ -613,11 +613,24 @@
             const cellArea = grid.cellAreaM2 || (grid.stepMeters * grid.stepMeters);
             const patches = raw.map(members => {
                 let sumLng = 0, sumLat = 0, sumW = 0, maxW = -Infinity, worstAt = null;
+                const tally = {};
                 for (const i of members) {
                     sumLng += cells[i].lng;
                     sumLat += cells[i].lat;
                     sumW += worst[i];
                     if (worst[i] > maxW) { maxW = worst[i]; worstAt = cells[i]; }
+                    // 统计该斑块内"最难到达类"的众数 → 主导缺口成因
+                    const bk = bottleneck[i];
+                    tally[bk] = (tally[bk] || 0) + 1;
+                }
+                // 取众数作为该斑块主导缺口类
+                let domKey = null, domMax = -1;
+                for (const k in tally) if (tally[k] > domMax) { domMax = tally[k]; domKey = k; }
+                // 该斑块居民到"主导缺口类"的平均步行距离
+                let domSum = 0;
+                for (const i of members) {
+                    const d = (walk[domKey] && isFinite(walk[domKey][i])) ? walk[domKey][i] : 0;
+                    domSum += d;
                 }
                 const size = members.length;
                 return {
@@ -628,6 +641,9 @@
                     avgGap: sumW / size,
                     maxGap: maxW,
                     worstAt,
+                    // 方案D：该斑块最该补建的设施类型 + 该片居民到该类平均步行距离
+                    dominantType: domKey,
+                    avgWalkToDominant: size ? domSum / size : Infinity,
                     // 严重度积分 = 面积 × 平均缺口强度（越大越该优先补）
                     severity: size * (sumW / size)
                 };
