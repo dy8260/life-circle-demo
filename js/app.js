@@ -326,6 +326,7 @@
 
         set('brandMinutes', m);
         set('metaTargetMinutes', m + ' 分钟');
+        set('metaSpeed', (active ? active.speed : 80) + ' m/min');
         set('bwRadius', radius.toLocaleString('zh-CN'));
 
         // 左侧设置按钮摘要：时长 · 主人群 速度
