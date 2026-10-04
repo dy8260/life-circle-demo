@@ -13,7 +13,7 @@
          * 生成报告并渲染到 #reportSingle
          * @returns {string} 报告纯文本（用于复制/导出）
          */
-        build: function (center, resultByKey, areaM2, score, missedCategories, breakdown, gap) {
+        build: function (center, resultByKey, areaM2, score, missedCategories, breakdown, gap, perType, accessibility, recommendation) {
             const T = global.THEME || {};
             const lvl = Util.scoreLevel(score);
 
@@ -61,7 +61,7 @@
             // 报告头
             html.push(`
             <div class="report-header">
-                <h2>${escapeHtml(addr)} · 15 分钟生活圈体检报告</h2>
+                <h2>${escapeHtml(addr)} · ${global.WALK_MINUTES || 15} 分钟生活圈体检报告</h2>
                 <span class="level ${lvl.grade}">${lvl.text} ${score} 分</span>
             </div>`);
 
@@ -70,7 +70,7 @@
             <div class="report-section">
                 <h4>① 体检概览</h4>
                 <p>本次以<strong>真实步行路网</strong>计算可达圈，可达面积约 <b>${(areaM2 / 1e6).toFixed(2)} km²</b>。
-                在 15 分钟步行范围内共检索到 <b>${total}</b> 处民生配套，按 ${escapeHtml(CAT_NAMES)} 共 <b>${CAT_COUNT}</b> 类统计如下。</p>
+                在 ${global.WALK_MINUTES || 15} 分钟步行范围内共检索到 <b>${total}</b> 处民生配套，按 ${escapeHtml(CAT_NAMES)} 共 <b>${CAT_COUNT}</b> 类统计如下。</p>
                 <p>综合评分按 <b>"配套完整度 × 30% + 就近便利度 × 35% + 等时圈覆盖 × 20% + 类别多样性 × 15%"</b> 四维加权计算，参考《完整居住社区建设标准》与各地《15 分钟生活圈规划导则》。
                 最终得分 <b style="color:${lvl.color}">${score}</b>。</p>
                 ${renderBreakdown(breakdown, score)}
@@ -81,7 +81,7 @@
             <div class="report-section">
                 <h4>② 配套优势 (${sufficient.length + adequate.length} 类达标)</h4>`);
             if (sufficient.length === 0 && adequate.length === 0) {
-                html.push(`<p class="muted">⚠ 当前 15 分钟步行范围内，${CAT_COUNT} 类配套均未达"理想标准"，建议系统性补齐。</p>`);
+                html.push(`<p class="muted">⚠ 当前 ${global.WALK_MINUTES || 15} 分钟步行范围内，${CAT_COUNT} 类配套均未达"理想标准"，建议系统性补齐。</p>`);
             } else {
                 html.push('<ul class="report-list">');
                 sufficient.forEach(({ cat, n }) => {
@@ -115,10 +115,16 @@
             // 服务盲区识别（核心指标，独立成章）
             html.push(renderGapSection(gap));
 
-            // 改造建议（方案D：数据驱动，按真实斑块生成带坐标的落地建议）
+            // ④ 各人群可达性与评分差异（全龄 / 适老 / 无障碍友好，真实路网计算、与地图体检同源）
+            html.push(renderPerTypeSection(perType, score));
+
+            // ⑥ 无障碍可达性达标率（最近设施实测 × GB 50180-2018，独有轮椅维度）
+            html.push(renderAccessibilitySection(accessibility));
+
+// 改造建议（方案D：数据驱动，按真实斑块生成带坐标的落地建议）
             html.push(`
             <div class="report-section">
-                <h4>⑤ 改造建议</h4>
+                <h4>⑦ 改造建议</h4>
                 <ol class="report-list">`);
             if (missing.length > 0) {
                 html.push(`<li><strong>优先补齐缺失类：</strong>${missing.map(x => x.cat.name).join('、')} 是该社区最显著短板，建议在下一轮规划中作为重点。`);
@@ -133,7 +139,7 @@
                 return c ? c.name : k;
             };
             const _marks = ['①', '②', '③', '④', '⑤'];
-            const _R = (gap.params && gap.params.radiusMeters) || 1000;
+            const _R = (gap.params && gap.params.radiusMeters) || (global.BLIND_GAP && global.BLIND_GAP.radiusMeters) || 1000;
             (gap.patches || []).forEach((pt, i) => {
                 const t = _nameOf(pt.dominantType);
                 const avgTxt = (pt.avgWalkToDominant != null && isFinite(pt.avgWalkToDominant))
@@ -157,11 +163,16 @@
 
             // 慢行系统优化（去掉无条件"非圆形"断言）
             html.push(`<li><strong>慢行系统优化：</strong>若步行路径存在明显绕行、等时圈出现"凹陷"方向，建议研究增设人行天桥、地下通道或人行道拓宽。</li>`);
-            // 无障碍友好（修正 80 m/min 错误说法）
-            html.push(`<li><strong>无障碍友好：</strong>采用健康成年人平均步速 80 m/min（约 4.8 km/h）绘制等时圈；可在公交站、医院、菜市场附近设置无障碍坡道与休息座椅。</li>`);
+            // 无障碍友好：等时圈速度随当前主分析人群动态变化，不再写死 80 m/min
+            const _at = (global.WALK_TYPES || []).find(t => t.key === global.ACTIVE_TYPE) || { label: '成年人', speed: 80 };
+            const _atKmh = (_at.speed * 0.06).toFixed(1);
+            html.push(`<li><strong>无障碍友好：</strong>等时圈按当前主分析人群「<b>${_at.label}</b>」的步行速度 ${_at.speed} m/min（约 ${_atKmh} km/h）绘制；针对轮椅、老年人等慢行群体，可在公交站、医院、菜市场附近设置无障碍坡道与休息座椅，缩小全龄可达差距。</li>`);
             // 数据回流（通用产品化建议，保留）
             html.push(`<li><strong>数据回流：</strong>本系统可在街道办、社区居委层面常态化运行，每年更新 POI 数据，对改造效果做闭环评估。</li>`);
             html.push('</ol></div>');
+
+            // ⑧ 选址推荐（补点建议）：针对盲区贪心最大覆盖
+            html.push(renderRecommendSection(recommendation));
 
             // 渲染
             const el = document.getElementById('reportSingle');
@@ -175,12 +186,12 @@
                 addrTag.dataset.single = singleTitle;
             }
 
-            return this._plainText(addr, lvl, score, areaM2, total, sufficient, adequate, lacking, missing, gap);
+            return this._plainText(addr, lvl, score, areaM2, total, sufficient, adequate, lacking, missing, gap, accessibility, recommendation);
         },
 
-        _plainText(addr, lvl, score, areaM2, total, sufficient, adequate, lacking, missing, gap) {
+        _plainText(addr, lvl, score, areaM2, total, sufficient, adequate, lacking, missing, gap, accessibility, recommendation) {
             const lines = [];
-            lines.push(`【15 分钟便民生活圈 · 体检报告】`);
+            lines.push(`【${global.WALK_MINUTES || 15} 分钟便民生活圈 · 体检报告】`);
             lines.push(`地址：${addr}`);
             lines.push(`综合评分：${score} / 100  (${lvl.text})`);
             lines.push(`可达面积：约 ${(areaM2 / 1e6).toFixed(2)} km²`);
@@ -209,6 +220,32 @@
                     });
                 }
             }
+            lines.push(``);
+            lines.push(`无障碍可达性达标率（GB 50180-2018，抽样 ${accessibility && accessibility.sampledPoints || 0} 个居住点）：`);
+            if (!accessibility || !accessibility.ok) {
+                lines.push(` - 未执行${accessibility && accessibility.disabled ? '（已关闭）' : ''}`);
+            } else {
+                accessibility.categories.forEach(c => {
+                    lines.push(` - ${c.name}：步行 ${c.walkingRate}% / 轮椅 ${c.wheelchairRate}%`);
+                });
+                lines.push(` - 综合：步行 ${accessibility.overall.walkingRate}% / 轮椅 ${accessibility.overall.wheelchairRate}%`);
+                const diff = accessibility.overall.walkingRate - accessibility.overall.wheelchairRate;
+                if (diff > 0) {
+                    lines.push(` - 缺口：步行人群比轮椅人群高 ${diff} 个百分点，需关注无障碍设施`);
+                }
+            }
+            lines.push(``);
+            lines.push(`选址推荐（补点建议）：`);
+            if (!recommendation || !recommendation.ok) {
+                lines.push(` - 无服务盲区，暂无需补点建议`);
+            } else {
+                recommendation.perCategory.forEach(c => {
+                    const siteTxt = (c.sites && c.sites.length)
+                        ? c.sites.map(s => `(${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}) 消除 ${s.coveredPct}%`).join('；')
+                        : '无新建需求';
+                    lines.push(` - ${c.name}：可消除 ${c.eliminatedPct}% 盲区（${c.totalUncovered} 个盲区点）；落点 ${siteTxt}`);
+                });
+            }
             return lines.join('\n');
         }
     };
@@ -234,7 +271,7 @@
         }
 
         const p = gap.params || {};
-        const R = p.radiusMeters || 1000;
+        const R = p.radiusMeters || (global.BLIND_GAP && global.BLIND_GAP.radiusMeters) || 1000;
         const nameOf = (k) => {
             const c = POI_CATEGORIES.find(x => x.key === k);
             return c ? c.name : k;
@@ -244,8 +281,8 @@
         const html = [head];
 
         html.push(`
-            <p>本节基于「15 分钟社区生活圈」公共服务设施配套标准，识别<strong>服务盲区点位</strong>：
-            以 ${p.gridStepMeters || 120} m 为步长在 15 分钟等时圈内均匀布设 <b>${gap.gridCount}</b> 个分析栅格，
+            <p>本节基于「${global.WALK_MINUTES || 15} 分钟社区生活圈」公共服务设施配套标准，识别<strong>服务盲区点位</strong>：
+            以 ${p.gridStepMeters || 120} m 为步长在 ${global.WALK_MINUTES || 15} 分钟等时圈内均匀布设 <b>${gap.gridCount}</b> 个分析栅格，
             逐个计算到 <b>菜市场 / 药店 / 学校</b> 三类的<strong>步行</strong>最近距离；
             当三类距离<strong>全部超过 ${R} m</strong> 时，该点位判定为服务盲区。</p>`);
 
@@ -263,7 +300,7 @@
             <p>共识别到 <b style="color:#ff5470">${gap.gapCount}</b> 个盲区点位，
             占分析范围的 <b>${(gap.gapRatio * 100).toFixed(1)}%</b>，
             盲区面积约 <b>${(gap.gapAreaM2 / 1e4).toFixed(2)} 公顷</b>；
-            其中 <b>${gap.severeCount}</b> 个为重度盲区（三类最近距离均超过 ${p.severeMeters || 1500} m）。</p>`);
+            其中 <b>${gap.severeCount}</b> 个为重度盲区（三类最近距离均超过 ${p.severeMeters || (global.BLIND_GAP && global.BLIND_GAP.severeMeters) || 1500} m）。</p>`);
 
             // 最差 / 中心点状态
             if (gap.centerStatus) {
@@ -332,8 +369,138 @@
             ② λ 的空间均一性假设（实际绕行系数在河流、铁路、封闭小区附近会显著偏高）；
             ③ 栅格步长（步长越小边界越精细，代价是计算量按平方增长）。</p>`);
 
+        html.push('<p class="muted" style="font-size:12px;margin-top:6px">'
+            + '同一份实测结果还做了加压分析：达标率随步速下降的塌缩曲线、空间变异的步行阻抗场、'
+            + '每项判定的置信度，以及「缺设施还是缺路」的归因——见报告上方的「🔬 应力测试」页。</p>');
+
         html.push('</div>');
         return html.join('');
+    }
+
+    /**
+     * 各人群可达性与评分差异（全龄 / 适老 / 无障碍友好）
+     * 真实路网计算：每类人按其自身步行速度截断真实可达多边形、统计落入 POI，
+     * 复用与主人群体检完全相同的 calcScore，故各人群分 = 设该类人为主人群重跑体检所得分。
+     * 呈现一张「人群 × 速度 / 可达面积 / 综合分」表 + 一段差距结论。
+     */
+    function renderPerTypeSection(perType, mainScore) {
+        if (!perType || !perType.length) {
+            return '<div class="report-section"><h4>⑤ 各人群可达性与评分差异</h4>'
+                + '<p class="muted">未获取到各人群速度参数，本节跳过。</p></div>';
+        }
+        const head = '<div class="report-section"><h4>⑤ 各人群可达性与评分差异</h4>';
+
+        // 排序：分高到低，便于一眼看到差距
+        const sorted = perType.slice().sort((a, b) => b.score - a.score);
+        const best = sorted[0], worst = sorted[sorted.length - 1];
+        const bestR = best.areaKm2 || 0;
+        const worstR = worst.areaKm2 || 0;
+        const ratioTxt = (bestR > 0 && worstR > 0)
+            ? (bestR / worstR).toFixed(1) + ' 倍'
+            : '—';
+
+        const rows = perType.map(function (p) {
+            const activeTag = p.isActive ? ' <span class="pt-main">主</span>' : '';
+            return `<tr>
+                <td><span class="dot" style="background:${p.color}"></span>${escapeHtml(p.label)}${activeTag}</td>
+                <td>${p.speed} m/min</td>
+                <td>${p.areaKm2} km²</td>
+                <td><b style="color:${p.color}">${p.score}</b></td>
+            </tr>`;
+        }).join('');
+
+        const note = (best.key === worst.key)
+            ? '各人群速度设置相同，评分无差异。'
+            : `在同等 ${global.WALK_MINUTES || 15} 分钟条件下，可达性最好的人群（${escapeHtml(best.label)}）与最弱的人群（${escapeHtml(worst.label)}）步行可达面积相差约 <b>${ratioTxt}</b>，综合评分相差 <b>${best.score - worst.score}</b> 分。建议优先改善慢行系统与无障碍设施，缩小全龄群体的生活圈质量落差。`;
+
+        return head
+            + '<p>同一社区对不同行动能力人群的生活圈质量差异显著。下表按各人群<b>真实路网可达范围</b>统计落入的配套并复用与主体检相同的评分模型，得到 '
+            + `${global.WALK_MINUTES || 15} 分钟可达面积与综合评分：</p>`
+            + '<table class="per-type-table"><thead><tr>'
+            + '<th>人群</th><th>步行速度</th><th>可达面积</th><th>综合分</th>'
+            + '</tr></thead><tbody>' + rows + '</tbody></table>'
+            + `<p class="per-type-note">${note}</p>`
+            + '</div>';
+    }
+
+    /**
+     * 无障碍可达性达标率（最近设施实测 × GB 50180-2018，独有轮椅维度）
+     * 与「配套数量」互补：数量看"圈内有多少设施"，本指标看"走到最近一处该类设施要多久、是否达国标服务半径"。
+     * 同一段"到最近设施"的路，用步行速度算一次、用轮椅速度算一次，差值即无障碍缺口。
+     */
+    function renderAccessibilitySection(access) {
+        if (!access || !access.ok) {
+            return '<div class="report-section"><h4>⑥ 无障碍可达性达标率</h4>'
+                + '<p class="muted">完成体检后自动测算各居住点到最近设施（菜市场 / 药店 / 学校 / 医院 / 公交站）的步行、轮椅达标率。</p></div>';
+        }
+        const colorOf = function (v) {
+            return (v >= 85) ? '#00d68f' : (v >= 70) ? '#3a7afe' : (v >= 55) ? '#ffb547' : '#ff5470';
+        };
+        const rows = access.categories.map(function (c) {
+            const wc = colorOf(c.walkingRate), cc = colorOf(c.wheelchairRate);
+            return '<tr>'
+                + '<td>' + c.icon + ' ' + escapeHtml(c.name) + ' <small>(≤' + c.stdMinutes + '′)</small></td>'
+                + '<td><b style="color:' + wc + '">' + c.walkingRate + '%</b></td>'
+                + '<td><b style="color:' + cc + '">' + c.wheelchairRate + '%</b></td>'
+                + '</tr>';
+        }).join('');
+        const ow = colorOf(access.overall.walkingRate), oc = colorOf(access.overall.wheelchairRate);
+        const diff = access.overall.walkingRate - access.overall.wheelchairRate;
+        const note = (diff <= 0)
+            ? '步行与轮椅人群达标率基本一致，无障碍出行条件较好。'
+            : '步行人群综合达标率比轮椅人群高 <b>' + diff + ' 个百分点</b>，说明该社区对轮椅 / 行动不便人群仍存在无障碍短板，建议优先补齐无障碍坡道、缘石坡化与低速慢行通道。';
+        return '<div class="report-section"><h4>⑥ 无障碍可达性达标率</h4>'
+            + '<p>本节按 GB 50180-2018《城市居住区规划设计标准》服务半径，对居住采样点逐一实测"沿真实步行路网走到最近一处该类设施"的耗时，'
+            + '再与国标分钟阈值比对得到达标率；轮椅人群按低速（40 m/min）重算，差值即无障碍缺口。</p>'
+            + '<table class="per-type-table"><thead><tr><th>设施类别</th><th>步行达标率</th><th>轮椅达标率</th></tr></thead>'
+            + '<tbody>' + rows
+            + '<tr><td><b>综合</b></td>'
+            + '<td><b style="color:' + ow + '">' + access.overall.walkingRate + '%</b></td>'
+            + '<td><b style="color:' + oc + '">' + access.overall.wheelchairRate + '%</b></td></tr>'
+            + '</tbody></table>'
+            + '<p class="per-type-note">抽样 ' + access.sampledPoints + ' 个居住点 · ' + escapeHtml(access.note || '') + '</p>'
+            + '<p class="per-type-note">' + note + '</p>'
+            + '</div>';
+    }
+
+    /**
+     * 选址推荐（补点建议）
+     * 针对服务盲区，按"以国标盲区半径 R 内能覆盖的盲区点最多（按严重度加权）"贪心选点，
+     * 按"以国标盲区半径 R 内能覆盖的盲区点最多（按严重度加权）"贪心选取落点。
+     * 纯直线距离计算，不消耗地图配额。
+     */
+    function renderRecommendSection(rec) {
+        if (!rec || !rec.ok) {
+            return '<div class="report-section"><h4>⑧ 选址推荐</h4>'
+                + '<p class="muted">当前未识别到服务盲区，无需补点建议；或该功能未启用。</p></div>';
+        }
+        const colorOf = function (v) {
+            return (v >= 85) ? '#00d68f' : (v >= 70) ? '#3a7afe' : (v >= 55) ? '#ffb547' : '#ff5470';
+        };
+        const rows = rec.perCategory.map(function (c) {
+            const sitesTxt = (c.sites && c.sites.length)
+                ? c.sites.map(function (s) {
+                    const tag = s.rank === 1 ? '首选' : ('第' + s.rank + '选');
+                    return escapeHtml(c.icon) + ' <b style="color:' + c.color + '">' + tag + '</b>'
+                        + ' (' + s.lat.toFixed(4) + ', ' + s.lng.toFixed(4) + ') 消除'
+                        + ' <b style="color:' + colorOf(s.coveredPct) + '">' + s.coveredPct + '%</b>';
+                }).join('<br>')
+                : '<span class="muted">暂无新建需求</span>';
+            return '<tr>'
+                + '<td>' + escapeHtml(c.icon + ' ' + c.name) + '</td>'
+                + '<td><b style="color:' + colorOf(c.eliminatedPct) + '">' + c.eliminatedPct + '%</b></td>'
+                + '<td>' + (c.totalUncovered || 0) + ' 点</td>'
+                + '<td style="font-size:12px;line-height:1.5">' + sitesTxt + '</td>'
+                + '</tr>';
+        }).join('');
+        return '<div class="report-section"><h4>⑧ 选址推荐（补点建议）</h4>'
+            + '<p>基于已识别的服务盲区栅格需求点，按"以国标盲区半径 <b>' + (rec.radiusMeters || 1000) + ' m</b> 内能覆盖的盲区点最多（按严重度加权）"贪心选取每类落点，'
+            + '预期消除率如下。落点坐标为被覆盖需求点的加权质心，更贴近真实"需求中心"。</p>'
+            + '<table class="per-type-table"><thead><tr>'
+            + '<th>设施类别</th><th>可消除盲区率</th><th>盲区点数</th><th>推荐落点（坐标 / 预计消除率）</th>'
+            + '</tr></thead><tbody>' + rows + '</tbody></table>'
+            + '<p class="per-type-note">' + escapeHtml(rec.note || '') + '</p>'
+            + '</div>';
     }
 
     function escapeHtml(s) {

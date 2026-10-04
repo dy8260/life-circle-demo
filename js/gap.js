@@ -146,10 +146,24 @@
             report(0.92, '聚合连片盲区斑块');
             const patches = this._patches(grid, cls.isGap, cls.worst, cls.bottleneck, walk, CFG);
 
+            // ── ⑥ 空间变异 λ 场 + 三态判定（加法式扩展，不介入上面的既有判定路径）──
+            //    此时只有 λ 标定锚点可用（通常 6 个），场较粗；
+            //    可达性实测完成后 app.js 会调 refineLambdaField() 用更多观测精化。
+            report(0.95, '建立步行阻抗场');
+            let lambdaField = null, tri = null;
+            try {
+                const obsInit = this._collectObservations(calib.detail, null);
+                lambdaField = this._lambdaField(grid.cells, obsInit, CFG, calib.lambda);
+                tri = this._tristate(grid.cells.length, keys, straight, walk, lambdaField, CFG);
+            } catch (e) {
+                console.warn('[gap] 步行阻抗场构建失败（不影响主流程）', e);
+            }
+
             report(1, '服务盲区分析完成');
 
             const result = this._buildResult({
-                grid, keys, straight, walk, cls, patches, calib, poiCount, center, CFG
+                grid, keys, straight, walk, cls, patches, calib, poiCount, center, CFG,
+                lambdaField, tristate: tri
             });
             this.lastResult = result;
             Util.logGroup && Util.logGroup('服务盲区分析', result);
@@ -658,7 +672,8 @@
          * ================================================================ */
 
         _buildResult: function (o) {
-            const { grid, keys, walk, cls, patches, calib, poiCount, center, CFG } = o;
+            const { grid, keys, walk, cls, patches, calib, poiCount, center, CFG,
+                    straight, lambdaField, tristate } = o;
             const n = grid.cells.length;
             const gapCount = cls.gapCount;
 
@@ -734,6 +749,23 @@
                 lambdaSamples: calib.samples,
                 lambdaDetail: calib.detail || [],
 
+                // 步行阻抗场 λ(x,y)（空间变异）+ 三态盲区判定（加法式扩展）
+                lambdaField: lambdaField ? {
+                    globalLambda: lambdaField.globalLambda,
+                    observationCount: lambdaField.observations.length,
+                    loocv: lambdaField.loocv,
+                    range: lambdaField.range,
+                    topDetours: lambdaField.topDetours,
+                    confMean: lambdaField.confMean
+                } : null,
+                tristate: tristate ? {
+                    counts: tristate.counts,
+                    hiddenRatio: tristate.hiddenRatio,
+                    explicitRatio: tristate.explicitRatio,
+                    confMean: tristate.confMean,
+                    lowConfidenceRatio: tristate.lowConfidenceRatio
+                } : null,
+
                 // 规模
                 gridCount: n,
                 gapCount,
@@ -753,10 +785,289 @@
                 // 内部引用（渲染 / 调试用，不参与序列化展示）
                 _grid: grid,
                 _walk: walk,
+                _straight: straight,
                 _isGap: cls.isGap,
                 _level: cls.level,
                 _worst: cls.worst,
-                _keys: keys
+                _keys: keys,
+                _calibDetail: calib.detail || [],
+                _lambdaField: lambdaField,
+                _tristateRaw: tristate
+            };
+        },
+
+        /* ================================================================
+         * ⑥ 步行阻抗场 λ(x, y) —— 把「一个全局常数」升级为「空间变异场」
+         *
+         * 传统做法（含本项目旧版）：用少量锚点标定出一个全局 λ，全图统一外推。
+         * 但真实城市的绕行程度是**随位置变化**的——河流两岸、铁路两侧、封闭小区
+         * 内外能差一倍以上；用同一个 λ 会把局部的高绕行"平均"掉。
+         *
+         * 这里把每个真实路网观测（直线 vs 实测）当作 λ 的一次空间采样，
+         * 用反距离加权（IDW, power=2）插值出连续场，并用留一交叉验证给出场本身的精度自证。
+         * ================================================================ */
+
+        /**
+         * 汇聚 λ 观测值（两个来源，都是已经花过配额的真实路网样本，零新增调用）
+         * @param {Array} calibDetail 本模块 λ 标定锚点
+         * @param {Array} externalPairs 无障碍可达性模块的真实路网样本（src==='route'）
+         */
+        _collectObservations: function (calibDetail, externalPairs) {
+            const out = [];
+            (calibDetail || []).forEach(s => {
+                if (!s || !isFinite(s.lambda) || s.lambda <= 0) return;
+                out.push({
+                    lng: s.lng, lat: s.lat, key: s.key,
+                    straight: s.straight, walk: s.walk, lambda: s.lambda, from: 'calib'
+                });
+            });
+            (externalPairs || []).forEach(p => {
+                if (!p || !isFinite(p.lambda) || p.lambda <= 0) return;
+                // 直线距离过短的样本比值噪声大（同一点附近的量纲误差被放大），直接剔除
+                if (!p.straight || p.straight < 60) return;
+                out.push({
+                    lng: p.lng, lat: p.lat, key: p.key,
+                    straight: p.straight, walk: p.walk, lambda: p.lambda, from: 'access'
+                });
+            });
+            return out;
+        },
+
+        /**
+         * 用更多观测重新精化 λ 场与三态判定
+         * ⚠ 必须在 analyze 之后调用：可达性实测（每居住点到最近设施）发生在盲区分析之后，
+         *    它带来的观测点通常比纯锚点标定多一个量级，场会明显更准。
+         * @param {Array} externalPairs Accessibility.compute 返回的 lambdaPairs
+         * @returns {Object|null} λ 场对象
+         */
+        refineLambdaField: function (externalPairs) {
+            const r = this.lastResult;
+            if (!r || !r.enabled || !r._grid || !r._straight) return null;
+            try {
+                const CFG = this._cfg();
+                const obs = this._collectObservations(r._calibDetail, externalPairs);
+                if (!obs.length) return null;
+                const field = this._lambdaField(r._grid.cells, obs, CFG,
+                    (r.lambda && isFinite(r.lambda)) ? r.lambda : CFG.lambdaDefault);
+                const tri = this._tristate(r._grid.cells.length, r._keys, r._straight, r._walk, field, CFG);
+
+                r._lambdaField = field;
+                r._tristateRaw = tri;
+                r.lambdaField = {
+                    globalLambda: field.globalLambda,
+                    observationCount: field.observations.length,
+                    loocv: field.loocv,
+                    range: field.range,
+                    topDetours: field.topDetours,
+                    confMean: field.confMean
+                };
+                r.tristate = {
+                    counts: tri.counts,
+                    hiddenRatio: tri.hiddenRatio,
+                    explicitRatio: tri.explicitRatio,
+                    confMean: tri.confMean,
+                    lowConfidenceRatio: tri.lowConfidenceRatio
+                };
+                return field;
+            } catch (e) {
+                console.warn('[gap] λ 场精化失败（不影响主流程）', e);
+                return null;
+            }
+        },
+
+        /**
+         * 构建 λ 场
+         * @param {Array} cells 栅格点
+         * @param {Array} observations λ 观测
+         * @param {Object} CFG 配置
+         * @param {number} globalLambda 兜底 λ（通常为标定得到的全局值）
+         */
+        _lambdaField: function (cells, observations, CFG, globalLambda) {
+            const n = cells.length;
+            const base = (isFinite(globalLambda) && globalLambda > 0) ? globalLambda : CFG.lambdaDefault;
+            const value = new Float64Array(n);
+            const conf = new Float64Array(n);
+            const obs = observations || [];
+
+            const emptyField = {
+                value, conf, observations: obs, globalLambda: base,
+                loocv: null, range: null, topDetours: [], confMean: 0
+            };
+
+            if (!obs.length) {
+                value.fill(base);
+                conf.fill(0.15);
+                return emptyField;
+            }
+
+            // —— 全局统计 ——
+            let mn = Infinity, mx = -Infinity, sum = 0;
+            obs.forEach(o => {
+                if (o.lambda < mn) mn = o.lambda;
+                if (o.lambda > mx) mx = o.lambda;
+                sum += o.lambda;
+            });
+            const range = { min: mn, max: mx, mean: sum / obs.length };
+
+            // —— 置信度衰减半径：取观测点空间展距的一半，落在 [600, 3000] m ——
+            let spread = 0;
+            for (let i = 0; i < obs.length; i++) {
+                for (let j = i + 1; j < obs.length; j++) {
+                    const d = Util.distance(obs[i], obs[j]);
+                    if (d > spread) spread = d;
+                }
+            }
+            const Rconf = Util.clamp(spread * 0.5, 600, 3000);
+
+            // —— IDW 插值全场 ——
+            for (let i = 0; i < n; i++) {
+                if (obs.length < 2) { value[i] = base; conf[i] = 0.15; continue; }
+                let num = 0, den = 0, dmin = Infinity, exact = null;
+                for (let j = 0; j < obs.length; j++) {
+                    const d = Util.distance(cells[i], obs[j]);
+                    if (d < dmin) dmin = d;
+                    if (d < 1e-6) { exact = obs[j].lambda; break; }   // 观测点自身
+                    const w = 1 / (d * d);                            // power = 2
+                    num += w * obs[j].lambda;
+                    den += w;
+                }
+                const raw = (exact != null) ? exact : (den > 0 ? num / den : base);
+                value[i] = Util.clamp(raw, CFG.lambdaMin, CFG.lambdaMax);
+                conf[i] = Util.clamp(1 - dmin / Rconf, 0.15, 1);
+            }
+
+            // —— 精度自证：留一交叉验证 ——
+            const loocv = this._loocv(obs);
+
+            // —— 举证式归因：绕行最夸张的 TOP3 点対 ——
+            const topDetours = obs.slice()
+                .sort((a, b) => b.lambda - a.lambda)
+                .slice(0, 3)
+                .map(o => ({
+                    key: o.key,
+                    straight: Math.round(o.straight || 0),
+                    walk: Math.round(o.walk || 0),
+                    detour: Math.round((o.walk || 0) - (o.straight || 0)),
+                    lambda: o.lambda
+                }));
+
+            let confSum = 0;
+            for (let i = 0; i < n; i++) confSum += conf[i];
+
+            return {
+                value, conf, observations: obs, globalLambda: base,
+                loocv, range, topDetours,
+                confMean: n ? confSum / n : 0
+            };
+        },
+
+        /**
+         * 留一交叉验证：逐个剔除观测，用其余观测插值预测被剔除点，评估场的泛化误差
+         * 这是「λ 场可信吗」这个问题最直接的答案，也回答了"为什么不是拍脑袋的常数"。
+         */
+        _loocv: function (obs) {
+            const m0 = obs.length;
+            if (m0 < 3) return null;
+            const pred = [], act = [], baseline = [];
+            for (let i = 0; i < m0; i++) {
+                let num = 0, den = 0, exact = null;
+                let sumOthers = 0, cntOthers = 0;   // 真·留一全局常数基线：其余观测的 λ 均值
+                for (let j = 0; j < m0; j++) {
+                    if (i === j) continue;
+                    const d = Util.distance(obs[i], obs[j]);
+                    sumOthers += obs[j].lambda; cntOthers++;
+                    if (d < 1e-6) { exact = obs[j].lambda; continue; }
+                    const w = 1 / (d * d);
+                    num += w * obs[j].lambda;
+                    den += w;
+                }
+                const baseOthers = cntOthers > 0 ? sumOthers / cntOthers : 0;
+                if (exact != null) { pred.push(exact); act.push(obs[i].lambda); baseline.push(baseOthers); continue; }
+                if (den <= 0) continue;
+                pred.push(num / den);
+                act.push(obs[i].lambda);
+                baseline.push(baseOthers);
+            }
+            const m = pred.length;
+            if (m < 3) return null;
+            let se = 0, ae = 0, sst = 0, aeB = 0, seB = 0, mean = 0;
+            for (let i = 0; i < m; i++) { mean += act[i]; }
+            mean /= m;
+            for (let i = 0; i < m; i++) {
+                const e = pred[i] - act[i];
+                ae += Math.abs(e);
+                se += e * e;
+                sst += (act[i] - mean) * (act[i] - mean);
+                const eb = baseline[i] - act[i];   // 全局常数 λ 基线的误差
+                aeB += Math.abs(eb);
+                seB += eb * eb;
+            }
+            const mae = ae / m, rmse = Math.sqrt(se / m);
+            const maeB = aeB / m, rmseB = Math.sqrt(seB / m);
+            // 改进率：空间场相对「全图单一全局常数 λ」的预测误差下降幅度。
+            // 用全局均值作基线，正面回答"为什么不直接用一个数"——误差降幅即证据。
+            const improveMae = maeB > 1e-9 ? (maeB - mae) / maeB : null;
+            const improveRmse = rmseB > 1e-9 ? (rmseB - rmse) / rmseB : null;
+            return {
+                n: m,
+                mae: mae,
+                rmse: rmse,
+                maeBaseline: maeB,
+                rmseBaseline: rmseB,
+                r2: (sst > 1e-9) ? (1 - se / sst) : null,   // 内部保留（相对全局均值），不再对外展示
+                improveMae: improveMae,
+                improveRmse: improveRmse,
+                meanLambda: mean
+            };
+        },
+
+        /**
+         * 三态盲区判定
+         *
+         *   0 覆盖     —— 步行距离就在阈值内（正常）
+         *   1 隐性盲区 —— 直线距离 ≤ R（画圆看着「有配套」）但实际步行 > R
+         *   2 显性盲区 —— 直线距离本身已 > R
+         *
+         * 「隐性盲区」是直线画圆口径会系统性漏判的那部分，
+         * 也是"为什么不能用圆代替等时圈"最直接的证据。
+         */
+        _tristate: function (n, keys, straight, walk, field, CFG) {
+            const R = CFG.radiusMeters;
+            const state = new Uint8Array(n);
+            const counts = { cover: 0, hidden: 0, explicit: 0 };
+
+            for (let i = 0; i < n; i++) {
+                let mnWalk = Infinity, mnStraight = Infinity;
+                for (const k of keys) {
+                    const wd = walk[k][i];
+                    const sd = straight.dist[k][i];
+                    if (wd < mnWalk) mnWalk = wd;
+                    if (sd < mnStraight) mnStraight = sd;
+                }
+                if (mnWalk <= R) { state[i] = 0; counts.cover++; }
+                else if (mnStraight <= R) { state[i] = 1; counts.hidden++; }
+                else { state[i] = 2; counts.explicit++; }
+            }
+
+            // 置信度：离真实路网观测越远，判定越依赖外推，把握越低
+            let confSum = 0, lowCount = 0, judged = 0;
+            if (field && field.conf) {
+                for (let i = 0; i < n; i++) {
+                    if (state[i] === 0) continue;
+                    judged++;
+                    const c = field.conf[i];
+                    confSum += c;
+                    if (c < 0.4) lowCount++;
+                }
+            }
+
+            return {
+                state,
+                counts,
+                hiddenRatio: counts.hidden > 0 ? counts.hidden / n : 0,
+                explicitRatio: counts.explicit > 0 ? counts.explicit / n : 0,
+                confMean: judged ? confSum / judged : 0,
+                lowConfidenceRatio: judged ? lowCount / judged : 0
             };
         },
 
@@ -824,20 +1135,20 @@
 
             const wrapper = document.createElement('div');
             wrapper.className = 'gap-overlay';
+            // ⚠ 层级：地图底图/矢量要素由一个 z-index:0 的 WebGL canvas 绘制（容器内同层级、DOM 顺序更靠后），
+            //   覆盖层若也用 z-index:0 且插在它前面，会被整块盖住（画了也看不见）。
+            //   这里取 z-index:1 —— 高于底图 canvas，低于 BMapGL 控件与版权信息（z-index 5/8/10），
+            //   配合 pointer-events:none，地图拖拽缩放不受影响。
             wrapper.style.cssText = `
                 position:absolute; top:0; left:0;
                 width:${map.getSize().width}px; height:${map.getSize().height}px;
-                pointer-events:none; z-index:0; display:none;`;
+                pointer-events:none; z-index:1; display:none;`;
 
             const canvas = document.createElement('canvas');
             canvas.style.cssText = 'display:block;width:100%;height:100%;';
             wrapper.appendChild(canvas);
-            // 插到容器第一个子节点前面 → 渲染在地图 WebGL 层下方，不会遮挡 POI 图标
-            if (container.firstChild) {
-                container.insertBefore(wrapper, container.firstChild);
-            } else {
-                container.appendChild(wrapper);
-            }
+            // 追加到容器末尾：与底图 canvas 同层级时靠 DOM 顺序取胜，双重保证覆盖层在上
+            container.appendChild(wrapper);
 
             this.wrapper = wrapper;
             this.canvas = canvas;

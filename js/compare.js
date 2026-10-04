@@ -64,7 +64,11 @@
                     ir: r.ir,              // 等时圈多边形对象（供对比地图渲染使用）
                     breakdown: r.breakdown,
                     missedCategories: r.missedCategories,
-                    resultByKey: r.resultByKey
+                    resultByKey: r.resultByKey,
+                    perType: r.perType,     // 各人群（全龄友好）评分，供对比模式 A/B 双列展示
+                    accessibility: r.accessibility,   // 无障碍可达性达标率（最近设施实测 × GB 50180-2018）
+                    gapResult: r.gapResult,          // 盲区分析结果（供「服务盲区识别」卡复用，避免重复计算）
+                    recommendation: r.recommendation  // 选址推荐（补点建议）
                 };
             } catch (e) {
                 console.warn('对比槽 #' + idx + ' 失败', e);
@@ -152,6 +156,28 @@
             });
             html += `</tbody></table>`;
 
+            // 表格 3：无障碍可达性达标率对比（GB 50180-2018）
+            const rowA = rows.find(x => x.i === 0);
+            const rowB = rows.find(x => x.i === 1);
+            if (rowA && rowB && rowA.r.accessibility && rowB.r.accessibility
+                && rowA.r.accessibility.ok && rowB.r.accessibility.ok) {
+                html += `<h4 class="report-section-title">♿ 无障碍可达性达标率对比</h4>`;
+                html += `<p style="margin:0 0 8px;font-size:12px;color:var(--text-sub)">按 GB 50180-2018 服务半径实测各居住点到最近设施的耗时，分别计算步行与轮椅人群达标率。</p>`;
+                html += '<div class="access-compare-report">';
+                html += Accessibility.renderCompare(rowA.r.accessibility, rowB.r.accessibility);
+                html += '</div>';
+            }
+
+            // 表格 4：选址推荐（补点建议）对比
+            if (rowA && rowB && rowA.r.recommendation && rowB.r.recommendation
+                && rowA.r.recommendation.ok && rowB.r.recommendation.ok) {
+                html += `<h4 class="report-section-title">📍 选址推荐对比（补点建议）</h4>`;
+                html += `<p style="margin:0 0 8px;font-size:12px;color:var(--text-sub)">针对各自服务盲区，贪心选取落点后预计可消除的盲区率与推荐点数量对比。</p>`;
+                html += '<div class="access-compare-report">';
+                html += Recommend.renderCompare(rowA.r.recommendation, rowB.r.recommendation);
+                html += '</div>';
+            }
+
             // 文字总结
             if (sortedByScore.length >= 2) {
                 const champ = sortedByScore[0].r;
@@ -193,6 +219,11 @@
         activateCompareTab: function () {
             const tab = document.getElementById('tabCompare');
             if (tab) tab.disabled = false;
+            // 统一走 app 的互斥切换（会把应力测试面板一并收起，避免两块内容同时显示）
+            if (typeof global.switchReportTab === 'function') {
+                global.switchReportTab('compare');
+                return;
+            }
             const card = document.querySelector('.report-card');
             if (card) card.classList.add('has-compare');
             // 切 tab + 显示
@@ -201,6 +232,10 @@
             });
             document.getElementById('reportSingle').hidden = true;
             document.getElementById('reportCompare').hidden = false;
+            ['reportStress'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.hidden = true;
+            });
             // 同步头部标题
             const addrTag = document.getElementById('reportAddr');
             if (addrTag) addrTag.textContent = addrTag.dataset.compare || '对比报告';
@@ -208,6 +243,10 @@
 
         /** 切回单地址报告 tab */
         activateSingleTab: function () {
+            if (typeof global.switchReportTab === 'function') {
+                global.switchReportTab('single');
+                return;
+            }
             const card = document.querySelector('.report-card');
             if (card) card.classList.remove('has-compare');
             document.querySelectorAll('.report-tabs .tab').forEach(t => {
@@ -215,6 +254,10 @@
             });
             document.getElementById('reportSingle').hidden = false;
             document.getElementById('reportCompare').hidden = true;
+            ['reportStress'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.hidden = true;
+            });
             // 同步头部标题
             const addrTag = document.getElementById('reportAddr');
             if (addrTag) addrTag.textContent = addrTag.dataset.single || '尚未体检';

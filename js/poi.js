@@ -287,21 +287,35 @@
             return this._runWithRetry((local) => local.searchNearby(keyword, center, radius), 'nearby:' + keyword, key);
         },
 
-        /** 单次 LocalSearch 执行（构造 + 回调 + 8s 超时降级），返回 Promise<{list, failed, status}> */
+        /** 单次 LocalSearch 执行（构造 + 回调 + 分页累积 + 超时降级），返回 Promise<{list, failed, status}> */
         _runOnce: function (invoke, label) {
             return new Promise((resolve) => {
                 let done = false;
-                const finish = (payload) => { if (!done) { done = true; resolve(payload); } };
-                const timer = setTimeout(() => finish({ list: [], failed: false, status: 'timeout' }), 8000);
-                const onDone = (result) => {
+                const collected = [];          // 跨页累积（gotoPage 翻页后合并）
+                const seen = new Set();        // 跨页去重，避免分页重复计数
+                const maxPages = (typeof global.POI_MAX_PAGES === 'number' && global.POI_MAX_PAGES > 1)
+                    ? global.POI_MAX_PAGES : 1;
+                let page = 0;
+                let lastStatus = 'n/a';
+                let lastFailed = false;
+                let local = null;
+
+                const finish = (payload) => {
+                    if (done) return;
                     clearTimeout(timer);
+                    done = true;
+                    resolve(payload);
+                };
+
+                const onDone = (result) => {
+                    if (done) return;
                     let status = 'n/a';
                     try {
                         if (result && typeof result.getStatus === 'function') status = result.getStatus();
                         else if (result && typeof result.status !== 'undefined') status = result.status;
                         else if (result && typeof result.code !== 'undefined') status = result.code;
                     } catch (e) {}
-                    const list = this._extract(result);
+                    lastStatus = status;
                     // 仅当百度明确回错误码（非 0 / 非 n/a）才视为「检索失败」，
                     // 干净返回但 0 条（status=0 或 n/a）属「该范围无此配套」，不算失败。
                     const errCodes = {
@@ -310,30 +324,61 @@
                         102: '未通过白名单', 200: '后端内部错误', 240: '配额超限',
                         302: '需登录', 401: '未授权/配额', 500: '服务端错误'
                     };
-                    const failed = (status !== 'n/a' && status !== 0 && status !== '0')
+                    lastFailed = (status !== 'n/a' && status !== 0 && status !== '0')
                         && (errCodes[status] !== undefined || Number(status) >= 1);
-                    console.log('[POI]', label, 'status=', status, 'count=', list.length, failed ? '(失败)' : '');
-                    finish({ list, failed, status });
+
+                    // 累加当前页 POI（跨页按 uid 去重，避免翻页后重复计入）
+                    const list = this._extract(result);
+                    list.forEach(p => {
+                        if (!p || seen.has(p.uid)) return;
+                        seen.add(p.uid);
+                        collected.push(p);
+                    });
+
+                    // 【分页】百度 LocalSearch 单页最多返回 pageCapacity(50) 条，稠密区域直接被截断，
+                    // 是「配套设施数量少」的主因。若还有下一页且未超 POI_MAX_PAGES 上限，则 gotoPage 继续累积。
+                    // 防御：gotoPage 不存在 / 抛错 / 超时 / 已到上限，一律回落到当前已累积结果（不会比原逻辑更差）。
+                    let totalPages = 1;
+                    try { if (result && typeof result.getNumPages === 'function') totalPages = result.getNumPages(); } catch (e) {}
+                    if (page + 1 < totalPages && page + 1 < maxPages
+                        && local && typeof local.gotoPage === 'function') {
+                        page++;
+                        try { local.gotoPage(page); return; }   // 触发下一页 onDone，本页不结束
+                        catch (e) { /* 落到下方 finish */ }
+                    }
+
+                    console.log('[POI]', label, 'status=', lastStatus, 'count=', collected.length,
+                        (lastFailed ? '(失败)' : ''), (page > 0 ? ' pages=' + (page + 1) : ''));
+                    finish({ list: collected, failed: lastFailed, status: lastStatus });
                 };
+
                 const onErr = (e) => {
-                    clearTimeout(timer);
+                    if (done) return;
                     const info = (e && (e.message || e.code || e)) || e;
                     console.warn('[POI]', label, 'onErr →', info);
-                    finish({ list: [], failed: true, status: 'onErr' });
+                    // 分页途中网络抖动：已累积到的部分结果保留，否则标记失败
+                    finish({ list: collected, failed: true, status: 'onErr' });
                 };
+
+                // 超时随页数线性放宽（每多翻一页多给 6s），翻页中途超时也能带着已累积结果返回
+                const pageTimeout = 8000 + (Math.max(1, maxPages) - 1) * 6000;
+                const timer = setTimeout(() => {
+                    console.warn('[POI]', label, '超时（已累积 ' + collected.length + ' 条）');
+                    finish({ list: collected, failed: false, status: 'timeout' });
+                }, pageTimeout);
+
                 const optsVariants = [
                     { pageCapacity: 50, renderOptions: { map: null, autoViewport: false },
                       onSearchComplete: onDone, onError: onErr },
                     { pageCapacity: 50, onSearchComplete: onDone, onError: onErr }
                 ];
-                let local = null;
                 for (const opts of optsVariants) {
                     try { local = new BMapGL.LocalSearch(global.__bmap, opts); break; }
                     catch (e) { local = null; }
                 }
                 if (!local) { clearTimeout(timer); finish({ list: [], failed: false, status: 'no-local' }); return; }
                 try { invoke(local); }
-                catch (e) { clearTimeout(timer); finish({ list: [], failed: true, status: 'invoke-err' }); }
+                catch (e) { clearTimeout(timer); finish({ list: collected, failed: true, status: 'invoke-err' }); }
             });
         },
 
@@ -442,13 +487,23 @@
         render: function (map, resultByKey, polygon) {
             this.clear(map);
             this.markersByCategory = {};
+            this._map = map;
+            this._bindLegendToggle();
 
             const legendList = document.getElementById('legendList');
             if (legendList) legendList.innerHTML = '';
-            // 单地址模式渲染时，把图例标题恢复为「配套图例」
+            // 每次体检重建分类图例，主「全选」复选框同步回「全选」态（新数据默认全部显示）
+            const masterSel = document.getElementById('legendSelectAll');
+            if (masterSel) { masterSel.checked = true; masterSel.indeterminate = false; }
+            this._bindLegendToggle();
+            this._bindSelectAll();
+            // 单地址模式渲染时，把图例标题恢复为「图例」
             // （对比模式会在 _renderCompareMap 里改成「对比图例」）
-            const legendTitle = document.querySelector('.legend h4');
-            if (legendTitle) legendTitle.textContent = '配套图例';
+            const legendTitle = document.querySelector('.legend .lg-title');
+            if (legendTitle) legendTitle.textContent = '图例';
+            // 同时恢复「全选」主复选框的可见性（对比模式会隐藏它，见 css .legend.is-compare）
+            const legendBox = document.getElementById('legendBox');
+            if (legendBox) legendBox.classList.remove('is-compare');
 
             const polygonPts = polygon ? polygon.getPath() : null;
 
@@ -461,8 +516,8 @@
                     if (!polygonPts || polygonPts.length < 3) return true;
                     return pointInPolygon(item.point, polygonPts);
                 });
-                // 限制每类最多显示前 30 个（数量过多影响视觉与性能）
-                const items = filtered.slice(0, 30);
+                // 限制每类最多显示前 50 个（数量过多影响视觉与性能；计数以 filtered.length 全量为准）
+                const items = filtered.slice(0, 50);
 
                 items.forEach(item => {
                     const marker = this._makeMarker(cat, item);
@@ -485,8 +540,16 @@
                 if (legendList) {
                     // 图例显示精确过滤后的总数（与配套统计 / 柱状图保持一致）；
                     // 地图 marker 仍受 30 个上限保护，避免密集覆盖。
+                    // 每条目带复选框：默认全选，取消勾选即在地图上隐藏该类 POI（见 _bindLegendToggle）。
                     legendList.insertAdjacentHTML('beforeend',
-                        `<li><span class="dot" style="background:${cat.color}"></span>${cat.icon} ${cat.name} <small style="color:#8a9ec0">${filtered.length}</small></li>`);
+                        `<li class="legend-item" data-key="${cat.key}">
+                            <label class="legend-label" title="点击切换在地图上显示 / 隐藏「${cat.name}」">
+                                <input type="checkbox" class="legend-check" data-key="${cat.key}" checked>
+                                <span class="dot" style="background:${cat.color}"></span>
+                                <span class="legend-text">${cat.icon} ${cat.name}</span>
+                                <small class="legend-count">${filtered.length}</small>
+                            </label>
+                        </li>`);
                 }
             });
         },
@@ -535,6 +598,71 @@
             );
             marker.addEventListener('click', () => { try { map.openInfoWindow(info, pt); } catch (e) {} });
             return marker;
+        },
+
+        /**
+         * 给图例绑定一次性的「复选框切换显隐」事件代理。
+         * 图例每次 render 都会重建 DOM，所以用 __poiLegendBound 标志只绑一次。
+         */
+        _bindLegendToggle: function () {
+            const legendList = document.getElementById('legendList');
+            if (!legendList || legendList.__poiLegendBound) return;
+            legendList.__poiLegendBound = true;
+            legendList.addEventListener('change', (e) => {
+                const cb = e.target;
+                if (!cb || !cb.classList || !cb.classList.contains('legend-check')) return;
+                const key = cb.getAttribute('data-key');
+                const li = cb.closest('.legend-item');
+                if (li) li.classList.toggle('is-off', !cb.checked);
+                this.setCategoryVisible(this._map, key, cb.checked);
+                // 同步标题处的「全选」主复选框状态（全选 / 部分选 / 全不选）
+                const master = document.getElementById('legendSelectAll');
+                if (master && legendList) {
+                    const all = legendList.querySelectorAll('.legend-check');
+                    const checkedCount = legendList.querySelectorAll('.legend-check:checked').length;
+                    master.checked = all.length > 0 && checkedCount === all.length;
+                    master.indeterminate = checkedCount > 0 && checkedCount < all.length;
+                }
+            });
+        },
+
+        /**
+         * 给「配套设施」标题处的「全选」主复选框绑定一次性事件（静态元素，仅绑一次）。
+         * 切换时遍历所有分类复选框，统一显隐对应 POI 标记，并同步 is-off 状态。
+         */
+        _bindSelectAll: function () {
+            const master = document.getElementById('legendSelectAll');
+            if (!master || master.__selAllBound) return;
+            master.__selAllBound = true;
+            master.addEventListener('change', () => {
+                const list = document.getElementById('legendList');
+                if (!list || !this._map) return;
+                list.querySelectorAll('.legend-check').forEach(cb => {
+                    cb.checked = master.checked;
+                    const li = cb.closest('.legend-item');
+                    if (li) li.classList.toggle('is-off', !cb.checked);
+                    this.setCategoryVisible(this._map, cb.getAttribute('data-key'), cb.checked);
+                });
+                master.indeterminate = false;
+            });
+        },
+
+        /**
+         * 按类别在地图上显隐 POI 标记（图例复选框触发）
+         * @param {BMapGL.Map} map
+         * @param {string} key 类别 key（hospital / pharmacy / market / store / school / bus）
+         * @param {boolean} visible true=显示 false=隐藏
+         */
+        setCategoryVisible: function (map, key, visible) {
+            const arr = this.markersByCategory[key];
+            if (!arr || !map) return;
+            arr.forEach(m => {
+                try {
+                    if (visible) map.addOverlay(m);
+                    else map.removeOverlay(m);
+                } catch (e) {}
+            });
+            if (!visible) { try { map.closeInfoWindow(); } catch (e) {} }
         },
 
         clear: function (map) {

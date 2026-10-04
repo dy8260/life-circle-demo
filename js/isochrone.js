@@ -108,6 +108,54 @@
         },
 
         /**
+         * 与 _walkOne 类似，但【返回完整路径点数组】（不按 targetDist 截断），
+         * 路由失败时回退为「中心点 → 远点」的 2 点径向线，保证后续可按任意 targetDist 截断。
+         * 这是「一次采样、多种速度各自截断」方案的基础：5 类人员共用这 16 条完整路径，
+         * 避免每类各跑一次 WalkingRoute（5×16=80 次 → 仅 16 次）。
+         */
+        _walkFull: function (start, end, bearing, farPt) {
+            return new Promise((resolve) => {
+                let done = false;
+                const radial = [{ lng: start.lng, lat: start.lat }, farPt];
+                const fallback = () => radial;
+                const finish = (pts) => { if (!done) { done = true; resolve(pts && pts.length > 1 ? pts : fallback()); } };
+
+                const timer = setTimeout(() => finish(fallback()), 6000);
+
+                const onDone = function (results) {
+                    clearTimeout(timer);
+                    const pts = extractPath(results, route);
+                    finish(pts && pts.length > 1 ? pts : null);
+                };
+
+                const variants = [
+                    { renderOptions: { map: null, autoViewport: false }, onSearchComplete: onDone },
+                    { onSearchComplete: onDone }
+                ];
+
+                let route = null;
+                for (const opts of variants) {
+                    try { route = new BMapGL.WalkingRoute(global.__bmap, opts); break; }
+                    catch (e) { route = null; }
+                }
+                if (!route) { clearTimeout(timer); finish(fallback()); return; }
+
+                try {
+                    if (typeof route.setSearchCompleteCallback === 'function') {
+                        route.setSearchCompleteCallback(function () {
+                            clearTimeout(timer);
+                            const pts = extractPath(null, route);
+                            finish(pts && pts.length > 1 ? pts : null);
+                        });
+                    }
+                } catch (e) {}
+
+                try { route.search(start, end); }
+                catch (e) { clearTimeout(timer); finish(fallback()); }
+            });
+        },
+
+        /**
          * 在地图上渲染等时圈 + 中心点
          * @returns {{polygon:BMapGL.Polygon, area:number}}
          */
@@ -177,6 +225,103 @@
         buildPolygon: function (samples, center) {
             if (!samples || samples.length < 3) return [];
             return samples.map(p => new BMapGL.Point(p.lng, p.lat));
+        },
+
+        /**
+         * 一次性采样 N 个方向的【完整步行路径】（不过滤、不截断）。
+         * @param {BMapGL.Point} center 中心点
+         * @param {number} farDistance 远点距离（米）——应取「最快人群 × 时长 × 冗余」，保证覆盖所有人员
+         * @returns {Promise<Array<Array<{lng,lat}>>>} 长度 = sampleCount，每项是一条完整路径（或 2 点径向回退）
+         */
+        buildPaths: async function (center, farDistance, onProgress) {
+            if (!center) throw new Error('center required');
+            const directions = [];
+            for (let i = 0; i < ISO.sampleCount; i++) {
+                const bearing = (i * 360 / ISO.sampleCount);
+                directions.push({ idx: i, bearing, farPt: Util.destination(center, farDistance, bearing) });
+            }
+            let completed = 0;
+            const fullPaths = await Util.pmap(directions, async (dir) => {
+                const pts = await this._walkFull(
+                    new BMapGL.Point(center.lng, center.lat),
+                    new BMapGL.Point(dir.farPt.lng, dir.farPt.lat),
+                    dir.bearing,
+                    dir.farPt
+                );
+                completed++;
+                onProgress && onProgress(completed / ISO.sampleCount, `步行路径采样 ${completed}/${ISO.sampleCount}`);
+                return pts;
+            }, ISO.routeConcurrency);
+            return fullPaths;
+        },
+
+        /**
+         * 用「完整路径」按 targetDist 截断，生成某一速度下的真实路网等时圈多边形并上图。
+         * @param {Array<Array<{lng,lat}>>} fullPaths buildPaths 的返回
+         * @param {BMapGL.Point} center
+         * @param {number} targetDist 该速度下的目标弧长（= speed × walkMinutes）
+         * @param {object} style 多边形样式（strokeColor / fillColor 等）
+         * @returns {BMapGL.Polygon|null}
+         */
+        renderIsoForType: function (map, fullPaths, center, targetDist, style) {
+            if (!fullPaths || !fullPaths.length) return null;
+            const boundary = fullPaths.map(fp => {
+                if (!fp || fp.length < 2) return null;
+                const p = Util.pointAtDistance(fp, targetDist);
+                return p || fp[fp.length - 1];
+            }).filter(Boolean);
+            if (boundary.length < 3) return null;
+            const pts = boundary.map(p => new BMapGL.Point(p.lng, p.lat));
+            const polygon = new BMapGL.Polygon(pts, style);
+            map.addOverlay(polygon);
+            return polygon;
+        },
+
+        /**
+         * 仅绘制中心点 marker（带 SVG pulse），不画等时圈。供「各人员步行区域」模式在隐藏主等时圈后补回中心点。
+         * @returns {BMapGL.Marker}
+         */
+        renderCenterMarker: function (map, center) {
+            const centerSvg = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                  <circle cx="20" cy="20" r="14" fill="#ff5470" opacity="0.18"/>
+                  <circle cx="20" cy="20" r="9"  fill="#ff5470" opacity="0.35"/>
+                  <circle cx="20" cy="20" r="5"  fill="#ff5470" stroke="#fff" stroke-width="2"/>
+                </svg>`.trim();
+            const icon = new BMapGL.Icon(
+                'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(centerSvg),
+                new BMapGL.Size(40, 40),
+                { anchor: new BMapGL.Size(20, 20) }
+            );
+            const mk = new BMapGL.Marker(center, { icon, title: '体检中心' });
+            mk.setZIndex(999);
+            map.addOverlay(mk);
+            return mk;
+        },
+
+        /**
+         * 用「完整路径」按目标弧长截断，渲染主人群真实路网等时圈 + 中心点。
+         * 与 render() 的区别：输入是 buildPaths() 返回的 16 向完整路径（而非单次采样点），
+         * 主等时圈与各人群真实评分复用同一份路径，避免重复 16 次路由。
+         * 会登记 this.polygon / this.centerMarker，供 clear() 与「展示各人员步行区域」恢复逻辑复用。
+         * @returns {{polygon:BMapGL.Polygon, area:number}}
+         */
+        renderFromPaths: function (map, fullPaths, center, targetDist, style) {
+            this.clear(map);
+            if (!fullPaths || fullPaths.length < 3) return { polygon: null, area: 0 };
+            const boundary = fullPaths.map(fp => {
+                if (!fp || fp.length < 2) return null;
+                const p = Util.pointAtDistance(fp, targetDist);
+                return p || fp[fp.length - 1];
+            }).filter(Boolean);
+            if (boundary.length < 3) return { polygon: null, area: 0 };
+            const pts = boundary.map(p => new BMapGL.Point(p.lng, p.lat));
+            const polygon = new BMapGL.Polygon(pts, style || this.defaultStyle());
+            map.addOverlay(polygon);
+            const mk = this.renderCenterMarker(map, center);
+            this.polygon = polygon;
+            this.centerMarker = mk;
+            return { polygon, area: Util.polygonArea(pts) };
         },
 
         clear: function (map) {

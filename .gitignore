@@ -12,6 +12,9 @@ test/
 # 本地生成的概览文档（非站点内容）
 overview-*.md
 
+# 本地决策分析材料（非站点内容）
+docs/功能差距分析与冲刺清单.md
+
 # 依赖 / 系统文件
 node_modules/
 .DS_Store

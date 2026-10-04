@@ -182,7 +182,7 @@
             const btn = document.getElementById('btnGapToggle');
 
             if (!gap || !gap.enabled) {
-                box.innerHTML = '<p class="gap-empty muted">完成体检后自动识别：15 分钟步行范围内，' +
+                box.innerHTML = '<p class="gap-empty muted">完成体检后自动识别：' + (global.WALK_MINUTES || 15) + ' 分钟步行范围内，' +
                     '<b>1 公里内没有菜市场 / 药店 / 学校</b>的点位。</p>';
                 if (btn) { btn.disabled = true; btn.classList.remove('active'); btn.textContent = '显示点位'; }
                 this.renderGapLegend(null);
@@ -231,7 +231,7 @@
                 <i class="gb-mild"   style="width:${mildPct.toFixed(2)}%"></i>
             </div>
             <div class="gap-legend-inline">
-                <span><i style="background:#ff5470"></i>重度（三类均 > ${p.severeMeters || 1500} m）</span>
+                <span><i style="background:#ff5470"></i>重度（三类均 > ${p.severeMeters || (global.BLIND_GAP ? global.BLIND_GAP.severeMeters : 1500)} m）</span>
                 <span><i style="background:#ffb547"></i>一般（> ${R} m）</span>
             </div>`);
 
@@ -295,18 +295,11 @@
         },
 
         /**
-         * 地图图例：盲区色块（仅在有盲区时显示）
+         * 地图图例：服务盲区点位 + 推荐选址 + 步行阻抗场（与配套设施共用一列）
+         * 统一交给 app.js 的 renderLayerLegend 渲染，避免单列里维护多份图例状态。
          */
         renderGapLegend: function (gap) {
-            const ul = document.getElementById('gapLegendList');
-            if (!ul) return;
-            if (!gap || !gap.enabled || !gap.gapCount) { ul.hidden = true; ul.innerHTML = ''; return; }
-
-            const p = gap.params || {};
-            ul.innerHTML = `
-                <li><i class="dot" style="background:#ffb547"></i>一般盲区（1~${((p.severeMeters || 1500) / 1000).toFixed(1)} km 无三类配套）</li>
-                <li><i class="dot" style="background:#ff5470"></i>重度盲区（${((p.severeMeters || 1500) / 1000).toFixed(1)} km 以上无三类配套）</li>`;
-            ul.hidden = false;
+            if (typeof global.renderLayerLegend === 'function') global.renderLayerLegend(gap);
         },
 
         /**
@@ -458,6 +451,28 @@
             const poiTag = document.getElementById('poiTotalTag');
             if (poiTag) poiTag.textContent = `A ${poiA} 项 · B ${poiB} 项`;
 
+            // —— 2.5 全龄友好评分：A/B 双列对比（与单地址体检同源，复用各自地址真实路网上计算的 perType）——
+            const ptBox = document.getElementById('perTypeScores');
+            if (ptBox && rA.perType && rB.perType) {
+                ptBox.innerHTML = this._renderPerTypeCompare(rA.perType, rB.perType);
+            }
+
+            // —— 2.6 无障碍可达性达标率：A/B 双列对比（最近设施实测 × GB 50180-2018，独有轮椅维度）——
+            const acBox = document.getElementById('accessBody');
+            if (acBox && rA.accessibility && rB.accessibility) {
+                acBox.innerHTML = Accessibility.renderCompare(rA.accessibility, rB.accessibility);
+            } else if (acBox) {
+                acBox.innerHTML = '<p class="gap-empty muted">地址 A / B 暂无可比的无障碍可达性数据。</p>';
+            }
+
+            // —— 2.7 选址推荐：A/B 双列对比（针对盲区贪心选点）——
+            const rcBox = document.getElementById('recommendBody');
+            if (rcBox && rA.recommendation && rB.recommendation) {
+                rcBox.innerHTML = Recommend.renderCompare(rA.recommendation, rB.recommendation);
+            } else if (rcBox) {
+                rcBox.innerHTML = '<p class="gap-empty muted">地址 A / B 暂无补点建议数据。</p>';
+            }
+
             // —— 3. 盲区卡：先给占位，A/B 真实盲区分析完成后由 renderGapCompare 填充 ——
             if (gapBody) gapBody.style.display = 'none';
             if (gapCmp) {
@@ -574,7 +589,7 @@
                 else {
                     const win = ra < rb ? 'A' : 'B';
                     const d = Math.abs(ra - rb) * 100;
-                    note = `地址 <b>${win}</b> 盲区占比更低（低 ${d.toFixed(1)} 个百分点），15 分钟生活圈覆盖更完整。`;
+                    note = `地址 <b>${win}</b> 盲区占比更低（低 ${d.toFixed(1)} 个百分点），${(global.WALK_MINUTES || 15)} 分钟生活圈覆盖更完整。`;
                 }
             } else if (ra === null && rb === null) {
                 note = '两地均未能完成盲区识别，请切回单地址模式查看详细栅格结果。';
@@ -589,7 +604,7 @@
                 <div class="gc-col ${(ra !== null && rb !== null && rb < ra) ? 'win' : ''}">${col('B', gapB)}</div>
             </div>
             <p class="gc-note">${note}</p>
-            <p class="gap-note">判定口径：15 分钟步行范围内，菜市场 / 药店 / 学校 三类步行距离均 > ${params.radiusMeters || 1000} m 的点位（地图点位图仅展示单地址模式）。</p>`;
+            <p class="gap-note">判定口径：${(global.WALK_MINUTES || 15)} 分钟步行范围内，菜市场 / 药店 / 学校 三类步行距离均 > ${params.radiusMeters || 1000} m 的点位（地图点位图仅展示单地址模式）。</p>`;
         },
 
         /** 迷你评分卡（A/B 共用） */
@@ -652,6 +667,12 @@
 
             // 雷达/柱状图还原为最近一次单地址数据（无则清空）
             this.renderCharts(this._lastSingle || {});
+            // 全龄友好评分卡还原为最近一次单地址数据（无则清空）
+            this.renderPerType(this._lastPerType || []);
+            // 无障碍可达性达标率卡还原为最近一次单地址数据（无则清空占位）
+            this.renderAccessibility(this._lastAccessibility || null);
+            // 选址推荐卡还原为最近一次单地址数据（无则清空占位）
+            this.renderRecommend(this._lastRecommendation || null);
         },
 
         /**
@@ -669,6 +690,132 @@
          *  (三) 等时圈覆盖 20% —— 可达面积 < 1.5 km² 严重扣分
          *  (四) 类别多样性 15% —— 全部民生配套类别都≥1 处才能拿满分（按类别数动态归一）
          */
+
+        /**
+         * 各人群（全龄/适老/无障碍）评分 —— 真实路网计算（与地图体检同源）。
+         * 不再用数学近似：复用 runAnalysis 已采样的 16 向完整步行路径（fullPaths），
+         * 按第 t 类人的「速度 × 时长」截断出该类的真实可达多边形，
+         * 用 pointInPolygon 统计落在其内的各类 POI，再走与单地址体检完全相同的 calcScore。
+         * 这样「全龄友好评分」与「把该类人设为（主人群）重新体检」得到的分数完全一致。
+         * @param {Array} types        global.WALK_TYPES
+         * @param {BMapGL.Point} center 体检中心
+         * @param {Array<Array<{lng,lat}>>} fullPaths buildPaths 返回的 16 向完整路径
+         * @param {number} minutes      生活圈时长（分钟）
+         * @param {string} activeKey    主人群 key
+         * @param {Object} resultByKey  主人群检索到的 POI（每类 items 含 .point，供 pointInPolygon 过滤）
+         * @returns {Array<{key,label,color,speed,areaKm2,score,isActive}>}
+         */
+        perTypeScores: function (types, center, fullPaths, minutes, activeKey, resultByKey) {
+            const m = minutes || 15;
+            const cats = (typeof POI_CATEGORIES !== 'undefined') ? POI_CATEGORIES : [];
+            return (types || []).map(function (t) {
+                const targetDist = t.speed * m;
+                // 用共享的 16 向完整路径，按该类速度截断出真实可达多边形顶点
+                const boundary = (fullPaths || []).map(function (fp) {
+                    if (!fp || fp.length < 2) return null;
+                    const p = Util.pointAtDistance(fp, targetDist);
+                    return p || fp[fp.length - 1];
+                }).filter(Boolean);
+
+                let areaKm2 = 0, score = 0;
+                if (boundary.length >= 3) {
+                    const pts = boundary.map(function (p) { return { lng: p.lng, lat: p.lat }; });
+                    areaKm2 = Util.polygonArea(pts) / 1e6;
+                    // 统计落在该真实多边形内的 POI（逐类过滤，复用 calcScore 的同一套权重与口径）
+                    const rk = {};
+                    cats.forEach(function (cat) {
+                        const g = resultByKey ? resultByKey[cat.key] : null;
+                        const items = (g && g.items) ? g.items : [];
+                        rk[cat.key] = {
+                            items: items.filter(function (it) {
+                                return it.point && Util.pointInPolygon(it.point, pts);
+                            })
+                        };
+                    });
+                    score = Dashboard.calcScore(rk, areaKm2 * 1e6, center).score;
+                }
+                return {
+                    key: t.key, label: t.label, color: t.color, speed: t.speed,
+                    areaKm2: +areaKm2.toFixed(2),
+                    score: Math.round(score),
+                    isActive: t.key === activeKey
+                };
+            });
+        },
+
+        /**
+         * 渲染右侧「全龄友好评分」条：5 类人群各一条彩色进度条（与地图图例配色一致），
+         * 当前主人群高亮并标「主」。差距一眼可见，直观呈现适老/无障碍友好程度。
+         */
+        renderPerType: function (perType) {
+            const box = document.getElementById('perTypeScores');
+            if (!box) return;
+            if (!perType || !perType.length) { box.innerHTML = ''; return; }
+            this._lastPerType = perType;   // 缓存，供退出对比模式时还原单地址视图
+            const max = 100;
+            box.innerHTML = perType.map(function (p) {
+                const pct = Math.max(2, Math.min(100, (p.score / max) * 100));
+                const activeCls = p.isActive ? ' is-active' : '';
+                const mainTag = p.isActive ? '<span class="pt-main">主</span>' : '';
+                return '<div class="pt-row' + activeCls + '" data-key="' + p.key + '">'
+                    +   '<span class="pt-dot" style="background:' + p.color + '"></span>'
+                    +   '<span class="pt-label">' + p.label + mainTag + '</span>'
+                    +   '<span class="pt-track"><span class="pt-fill" style="width:' + pct + '%;background:' + p.color + '"></span></span>'
+                    +   '<span class="pt-score">' + p.score + '</span>'
+                    + '</div>';
+            }).join('');
+        },
+
+        /**
+         * 渲染「无障碍可达性达标率」卡（单地址模式）。
+         * 写入 #accessBody，并缓存供退出对比模式时还原单地址视图。
+         * @param {Object|null} access Accessibility.compute 的返回（null=清空占位）
+         */
+        renderAccessibility: function (access) {
+            const box = document.getElementById('accessBody');
+            if (!box) return;
+            this._lastAccessibility = access;   // 缓存，供退出对比模式时还原单地址视图
+            Accessibility.render(access, 'accessBody');
+        },
+
+        /**
+         * 渲染「选址推荐」卡（单地址模式）。
+         * 写入 #recommendBody，并缓存供退出对比模式时还原单地址视图。
+         * @param {Object|null} rec Recommend.compute 的返回（null=清空占位）
+         */
+        renderRecommend: function (rec) {
+            const box = document.getElementById('recommendBody');
+            if (!box) return;
+            this._lastRecommendation = rec;   // 缓存，供退出对比模式时还原单地址视图
+            Recommend.render(rec, 'recommendBody');
+        },
+
+        /**
+         * 对比模式：全龄友好评分 A/B 双列对比。
+         * 把两地址各自（在真实路网上）算出的各人群评分并排，分数高的一方整行高亮。
+         * @param {Array} pa A 地址的 perTypeScores 结果
+         * @param {Array} pb B 地址的 perTypeScores 结果
+         */
+        _renderPerTypeCompare: function (pa, pb) {
+            const mapA = {}, mapB = {};
+            pa.forEach(p => { mapA[p.key] = p; });
+            pb.forEach(p => { mapB[p.key] = p; });
+            const order = pa.length ? pa : pb;
+            if (!order.length) return '';
+            let html = '';
+            order.forEach(function (t) {
+                const a = mapA[t.key], b = mapB[t.key];
+                if (!a || !b) return;
+                html += '<div class="pt-row pt-cmp" data-key="' + t.key + '">'
+                    +   '<span class="pt-dot" style="background:' + t.color + '"></span>'
+                    +   '<span class="pt-label">' + t.label + '</span>'
+                    +   '<span class="pt-cnt a">A <b>' + a.score + '</b></span>'
+                    +   '<span class="pt-cnt b">B <b>' + b.score + '</b></span>'
+                    + '</div>';
+            });
+            return html;
+        },
+
         calcScore: function (resultByKey, areaM2, center) {
             const missedCategories = [];
             const nearestDist = {};     // 各类到中心点的最近距离（米）
@@ -735,11 +882,7 @@
 
             // (三) 等时圈覆盖（按 3.0 km² 满分；1.0 km² 硬下限）
             const areaKm2 = (areaM2 || 0) / 1e6;
-            let coverage;
-            if (areaKm2 <= 0)       coverage = 0;
-            else if (areaKm2 < 1.0) coverage = 25 * (areaKm2 / 1.0);
-            else if (areaKm2 < 3.0) coverage = 25 + 75 * ((areaKm2 - 1.0) / 2.0);
-            else                    coverage = 100;
+            const coverage = coverageFromArea(areaKm2);
 
             // (四) 类别多样性：满分 = 全部类别都≥1 处（按类别数动态归一，避免拆分类别后超分）
             const nCat = POI_CATEGORIES.length;
@@ -784,6 +927,17 @@
     function cntOf(resultByKey, key) {
         const g = resultByKey ? resultByKey[key] : null;
         return (g && g.items) ? g.items.length : 0;
+    }
+
+    /**
+     * 等时圈覆盖得分（私有，calcScore 与 perTypeScores 共用）
+     * 按可达面积 km² 分段：≤0→0；<1.0→25×(a/1.0)；<3.0→25+75×((a-1)/2)；≥3.0→100
+     */
+    function coverageFromArea(areaKm2) {
+        if (areaKm2 <= 0)      return 0;
+        if (areaKm2 < 1.0)     return 25 * (areaKm2 / 1.0);
+        if (areaKm2 < 3.0)     return 25 + 75 * ((areaKm2 - 1.0) / 2.0);
+        return 100;
     }
     function totalPoiOf(resultByKey) {
         if (!resultByKey) return 0;

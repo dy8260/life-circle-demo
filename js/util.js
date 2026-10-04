@@ -84,6 +84,49 @@
     };
 
     /**
+     * 射线法判定经纬度点是否在多边形内（跨立奇偶数规则）
+     * @param {{lng:number,lat:number}} point 待判定点（如 POI 的 .point）
+     * @param {Array<{lng:number,lat:number}>} polygon 多边形顶点（顺时针/逆时针均可）
+     * @returns {boolean}
+     */
+    util.pointInPolygon = function (point, polygon) {
+        if (!point || !polygon || polygon.length < 3) return false;
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i].lng, yi = polygon[i].lat;
+            const xj = polygon[j].lng, yj = polygon[j].lat;
+            const intersect = ((yi > point.lat) !== (yj > point.lat)) &&
+                (point.lng < (xj - xi) * (point.lat - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    };
+
+    /**
+     * 按多边形过滤 POI 结果（key→{items:[{point,lng,lat...}]}），返回仅落在多边形内的新对象。
+     * 用于把「最大可达范围」检索结果裁剪到「主人群可达范围」，保证主评分/报告/面板与地图主圈一致。
+     * @param {Object} resultByKey  POI.fetchAll 的返回
+     * @param {Array<{lng:number,lat:number}>} polygonPts 裁剪多边形顶点
+     * @returns {Object} 过滤后的 resultByKey（结构不变）
+     */
+    util.filterByPolygon = function (resultByKey, polygonPts) {
+        if (!resultByKey) return resultByKey;
+        if (!polygonPts || polygonPts.length < 3) return resultByKey;
+        const out = {};
+        Object.keys(resultByKey).forEach(function (key) {
+            const g = resultByKey[key];
+            if (!g || !g.items) { out[key] = g; return; }
+            out[key] = {
+                items: g.items.filter(function (it) {
+                    return it.point && util.pointInPolygon(it.point, polygonPts);
+                })
+            };
+        });
+        return out;
+    };
+
+
+    /**
      * 给定中心点和角度（度）+ 米距离，求远处的经纬度点
      */
     util.destination = function (center, distanceMeters, bearingDeg) {

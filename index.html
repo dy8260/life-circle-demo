@@ -43,56 +43,58 @@
   <div class="brand">
     <div class="logo-pulse"><span></span><span></span><span></span></div>
     <div class="brand-text">
-      <h1>15 分钟便民生活圈</h1>
+      <h1><span id="brandMinutes">15</span> 分钟便民生活圈</h1>
       <small>智能体检可视化系统</small>
     </div>
   </div>
 
-  <!-- 顶部地址栏 A（主地址） -->
-  <div class="addr-bar addr-bar-primary">
-    <span class="addr-tag">A</span>
-    <select id="provSelect" class="addr-prov" title="省份" aria-label="省份">
-      <option value="" disabled selected hidden>——省——</option>
-    </select>
-    <select id="citySelect" class="addr-city" title="城市" aria-label="城市" disabled>
-      <option value="" disabled selected hidden>——市——</option>
-    </select>
-    <select id="areaSelect" class="addr-area" title="区/县" aria-label="区/县" disabled>
-      <option value="" disabled selected hidden>——区——</option>
-    </select>
-    <input id="addrInput" class="addr-detail" type="text" placeholder="详细地址（小区/街道/社区，如：望京 SOHO）" />
-    <span class="addr-actions">
-      <button id="addrHint" type="button" class="hint-btn" title="点击查看地址输入说明" aria-label="地址输入提示">i</button>
-      <button id="btnGo"     class="btn primary">开始体检</button>
-      <button id="btnCompare" class="btn ghost" title="添加对比地址 · 并排体检">🆚 对比模式</button>
-      <button id="btnReset"  class="btn ghost">重置</button>
-    </span>
-  </div>
+  <button type="button" class="bw-settings-btn" id="openCircleSettings" aria-haspopup="dialog" aria-controls="circleSettingsMask">
+    <span class="bw-set-ico" aria-hidden="true">⚙</span>
+    <span class="bw-set-text">生活圈设置</span>
+    <span class="bw-set-sum" id="circleSummary">15 分钟 · 成年人 80</span>
+    <span class="bw-set-caret" aria-hidden="true">▾</span>
+  </button>
 
-  <!-- 顶部地址栏 B（对比地址，默认隐藏，点击 🆚 切换） -->
-  <div class="addr-bar addr-bar-secondary" id="addrBarB" hidden>
-    <span class="addr-tag tag-b">B</span>
-    <select id="provSelectB" class="addr-prov" title="省份（对比地址）" aria-label="省份（对比地址）">
-      <option value="" disabled selected hidden>——省——</option>
-    </select>
-    <select id="citySelectB" class="addr-city" title="城市（对比地址）" aria-label="城市（对比地址）" disabled>
-      <option value="" disabled selected hidden>——市——</option>
-    </select>
-    <select id="areaSelectB" class="addr-area" title="区/县（对比地址）" aria-label="区/县（对比地址）" disabled>
-      <option value="" disabled selected hidden>——区——</option>
-    </select>
-    <input id="addrInputB" class="addr-detail" type="text" placeholder="详细地址（对比地址）" />
-    <span class="addr-actions">
-      <button id="btnCloseB" type="button" class="hint-btn" title="关闭对比地址">×</button>
-      <button id="btnRunCompare" class="btn primary" disabled>🔬 开始对比</button>
-    </span>
-  </div>
+  <div class="topbar-right">
+    <!-- 顶部地址栏 A（主地址） -->
+    <div class="addr-bar addr-bar-primary">
+      <span class="addr-tag">A</span>
+      <select id="provSelect" class="addr-prov" title="省份" aria-label="省份">
+        <option value="" disabled selected hidden>——省——</option>
+      </select>
+      <select id="citySelect" class="addr-city" title="城市" aria-label="城市" disabled>
+        <option value="" disabled selected hidden>——市——</option>
+      </select>
+      <select id="areaSelect" class="addr-area" title="区/县" aria-label="区/县" disabled>
+        <option value="" disabled selected hidden>——区——</option>
+      </select>
+      <input id="addrInput" class="addr-detail" type="text" placeholder="详细地址（小区/街道/社区，如：望京 SOHO）" />
+      <span class="addr-actions">
+        <button id="addrHint" type="button" class="hint-btn" title="点击查看地址输入说明" aria-label="地址输入提示">i</button>
+        <button id="btnGo"     class="btn primary">开始体检</button>
+        <button id="btnCompare" class="btn ghost" title="添加对比地址 · 并排体检">🆚 对比模式</button>
+        <button id="btnReset"  class="btn ghost">重置</button>
+      </span>
+    </div>
 
-  <!-- 实时 HUD：替代原先静态 badge；只显示鼠标经度 / 纬度 / 路网采样进度（点击可收起） -->
-  <div class="hud" id="hud" title="悬停地图查看实时坐标；点击收起">
-    <span class="hud-row"><b>经度</b><i id="hudLng">--.----</i></span>
-    <span class="hud-row"><b>纬度</b><i id="hudLat">--.----</i></span>
-    <span class="hud-row"><b>路网</b><i id="hudPath">--</i></span>
+    <!-- 顶部地址栏 B（对比地址，默认隐藏，点击 🆚 切换） -->
+    <div class="addr-bar addr-bar-secondary" id="addrBarB" hidden>
+      <span class="addr-tag tag-b">B</span>
+      <select id="provSelectB" class="addr-prov" title="省份（对比地址）" aria-label="省份（对比地址）">
+        <option value="" disabled selected hidden>——省——</option>
+      </select>
+      <select id="citySelectB" class="addr-city" title="城市（对比地址）" aria-label="城市（对比地址）" disabled>
+        <option value="" disabled selected hidden>——市——</option>
+      </select>
+      <select id="areaSelectB" class="addr-area" title="区/县（对比地址）" aria-label="区/县（对比地址）" disabled>
+        <option value="" disabled selected hidden>——区——</option>
+      </select>
+      <input id="addrInputB" class="addr-detail" type="text" placeholder="详细地址（对比地址）" />
+      <span class="addr-actions">
+        <button id="btnCloseB" type="button" class="hint-btn" title="关闭对比地址">×</button>
+        <button id="btnRunCompare" class="btn primary" disabled>🔬 开始对比</button>
+      </span>
+    </div>
   </div>
 </header>
 
@@ -102,31 +104,63 @@
   <!-- 地图区 -->
   <section class="map-panel">
     <div id="map"></div>
+    <!-- 区域全屏：点击铺满视口，再点 / Esc 退出（避开左上底图切换、右上时间天气、左下角图例） -->
+    <button class="fs-btn fs-float fs-map-btn" data-target=".map-panel" title="全屏查看地图" aria-label="全屏查看地图">⛶ 全屏</button>
 
-    <!-- 趣味小部件：实时时间 + 当前城市天气（替代原先的工具按钮列） -->
-    <div class="info-widgets">
-      <div class="widget widget-time" title="实时时间">
-        <div class="time-hms"><span id="timeHH">--</span><i>:</i><span id="timeMM">--</span><i>:</i><span id="timeSS">--</span></div>
-        <div class="time-date"><span id="timeDate">---- / -- / --</span><span id="timeWeek">星期-</span></div>
+    <!-- 底图类型切换：普通（深色矢量）/ 卫星（默认） -->
+    <div class="maptype-switch" id="mapTypeSwitch">
+      <button type="button" class="mt-btn" data-type="normal">普通</button>
+      <button type="button" class="mt-btn is-active" data-type="satellite">卫星</button>
+    </div>
+
+    <!-- 趣味小部件：实时时间 + 当前城市天气（可收起） -->
+    <div class="info-widgets" id="infoWidgets">
+      <div class="iw-head" id="iwHead" title="点击收起 / 展开">
+        <span class="iw-toggle">▾</span>
+        <span class="iw-clock" id="iwClock">--:--</span>
       </div>
-      <div class="widget widget-weather" title="当前城市实时天气（Open-Meteo）">
-        <div class="wx-icon" id="wxIcon">☀️</div>
-        <div class="wx-body">
-          <div class="wx-city" id="wxCity">北京市</div>
-          <div class="wx-temp"><b id="wxTemp">--</b><i>°C</i><span id="wxDesc">--</span></div>
-          <div class="wx-extra">
-            <span>💧 <em id="wxHum">--</em>%</span>
-            <span>🍃 <em id="wxWind">--</em></span>
+      <div class="iw-body">
+        <div class="widget widget-time" title="实时时间">
+          <div class="time-hms"><span id="timeHH">--</span><i>:</i><span id="timeMM">--</span><i>:</i><span id="timeSS">--</span></div>
+          <div class="time-date"><span id="timeDate">---- / -- / --</span><span id="timeWeek">星期-</span></div>
+        </div>
+        <div class="widget widget-weather" id="widget-weather" title="当前城市实时天气（Open-Meteo，失败自动换备用源；点击卡片可手动重试）">
+          <div class="wx-icon" id="wxIcon">☀️</div>
+          <div class="wx-body">
+            <div class="wx-city" id="wxCity">北京市</div>
+            <div class="wx-temp"><b id="wxTemp">--</b><i>°C</i><span id="wxDesc">--</span></div>
+            <div class="wx-extra">
+              <span>💧 <em id="wxHum">--</em>%</span>
+              <span>🍃 <em id="wxWind">--</em></span>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 图例 -->
-    <div class="legend">
-      <h4>配套图例</h4>
-      <ul id="legendList"></ul>
-      <ul id="gapLegendList" hidden></ul>
+    <!-- 图例（可收起，两列：配套设施 / 每类人员） -->
+    <div class="legend" id="legendBox">
+      <div class="legend-head" id="legendHead" title="点击收起 / 展开">
+        <span class="lg-toggle">▼</span>
+        <span class="lg-title">图例</span>
+      </div>
+      <div class="legend-body" id="legendBody">
+        <div class="legend-col">
+          <h5>配套设施
+            <label class="legend-selall" title="全选 / 取消全选配套设施">
+              <input type="checkbox" id="legendSelectAll" checked>
+              <span>全选</span>
+            </label>
+          </h5>
+          <ul id="legendList"></ul>
+        </div>
+        <div class="legend-col">
+          <h5>每类人员 <small id="slSub"></small></h5>
+          <ul id="speedLegendList"></ul>
+          <!-- 分析图层图例（服务盲区点位 / 推荐选址 / 步行阻抗场）：仅单地址模式下展示，置于「每类人员」列下方；对比模式不渲染 -->
+          <ul id="layerLegendList"></ul>
+        </div>
+      </div>
     </div>
 
     <!-- 进度提示 -->
@@ -142,7 +176,10 @@
     <div class="card score-card">
       <div class="card-header">
         <h3>综合生活圈评分</h3>
-        <span class="card-tag" id="scoreTag">未体检</span>
+        <span class="card-actions">
+          <span class="card-tag" id="scoreTag">未体检</span>
+          <button class="fs-btn fs-text-btn" data-target=".side" title="全屏查看右侧全部数据（评分 / 无障碍 / 选址等）" aria-label="全屏查看右侧数据面板">⛶ 全屏</button>
+        </span>
       </div>
       <div class="score-body">
         <div class="score-ring">
@@ -157,12 +194,32 @@
           <div class="meta-row"><span>中心点</span><b id="metaCenter">—</b></div>
           <div class="meta-row"><span>可达面积</span><b id="metaArea">— km²</b></div>
           <div class="meta-row"><span>步行速度</span><b id="metaSpeed">80 m/min</b></div>
-          <div class="meta-row"><span>目标时长</span><b>15 分钟</b></div>
+          <div class="meta-row"><span>目标时长</span><b id="metaTargetMinutes">15 分钟</b></div>
           <div class="meta-row"><span>数据来源</span><b>百度真实路网</b></div>
         </div>
       </div>
       <!-- 对比模式：A/B 并排评分卡（默认隐藏，Dashboard.renderCompare 切换） -->
       <div class="score-compare" id="scoreCompareBody" hidden></div>
+    </div>
+
+    <!-- 全龄友好评分：各人群（适老/无障碍）综合分并排，差距一眼可见 -->
+    <div class="card per-type-card">
+      <div class="card-header">
+        <h3>全龄友好评分</h3>
+        <span class="card-tag">各人群</span>
+      </div>
+      <div id="perTypeScores" class="per-type-list"></div>
+    </div>
+
+    <!-- 无障碍可达性达标率：最近设施实测 × GB 50180-2018（独有轮椅维度） -->
+    <div class="card access-card">
+      <div class="card-header">
+        <h3>无障碍可达性达标率</h3>
+        <span class="card-tag">GB 50180-2018</span>
+      </div>
+      <div id="accessBody" class="access-body">
+        <p class="gap-empty muted">完成体检后自动测算：各居住点步行 / 轮椅到达最近菜市场、药店、学校等设施，是否达到国家标准服务半径。</p>
+      </div>
     </div>
 
     <div class="card">
@@ -195,6 +252,28 @@
       <div id="gapCompareBody" class="gap-body" hidden></div>
     </div>
 
+    <!-- 选址推荐（补点建议）：针对服务盲区（含单类覆盖缺口），推荐在哪里新建菜场/药店最能消除盲区 -->
+    <div class="card recommend-card">
+      <div class="card-header">
+        <h3>选址推荐</h3>
+        <button id="btnRecToggle" class="btn small ghost" disabled>标注选址</button>
+      </div>
+      <div id="recommendBody" class="recommend-body">
+        <p class="gap-empty muted">完成体检后自动生成：针对识别出的服务盲区（含单类覆盖缺口），推荐在哪里新建菜市场 / 药店 / 学校最能消除盲区。</p>
+      </div>
+    </div>
+
+    <!-- 步行阻抗场（空间变异 λ）：地图阻力图层 -->
+    <div class="card impedance-card">
+      <div class="card-header">
+        <h3>步行阻抗场</h3>
+        <button id="btnImpedanceToggle" class="btn small ghost" disabled>显示阻抗场</button>
+      </div>
+      <div id="impedanceBody" class="gap-body">
+        <p class="gap-empty muted">完成体检后自动生成：按实测的「直线 vs 步行」样本重建空间变异绕行系数，并在地图上叠加阻力图层。</p>
+      </div>
+    </div>
+
   </aside>
 
   <!-- 底部体检报告 -->
@@ -202,6 +281,7 @@
     <div class="report-tabs" id="reportTabs">
       <button class="tab active" data-tab="single">📍 当前地址体检报告</button>
       <button class="tab" data-tab="compare" id="tabCompare" disabled>🆚 对比报告</button>
+      <button class="tab" data-tab="stress" id="tabStress" disabled>🔬 应力测试</button>
     </div>
     <div class="card-header">
       <h3 id="reportTitle">15 分钟生活圈 · 体检报告</h3>
@@ -209,6 +289,9 @@
         <span id="reportAddr" class="muted">尚未体检</span>
         <button id="btnReportCopy"  class="btn small ghost">📋 复制</button>
         <button id="btnReportPrint" class="btn small ghost">🖨️ 打印</button>
+        <button id="btnReportImage" class="btn small ghost">🖼️ 图片</button>
+        <button id="btnReportPdf"   class="btn small ghost">📄 PDF</button>
+        <button class="fs-btn fs-text-btn" data-target=".report-card" title="全屏查看报告">⛶ 全屏</button>
       </div>
     </div>
     <div id="reportSingle" class="report-content">
@@ -224,6 +307,7 @@
       </div>
     </div>
     <div id="reportCompare" class="report-content" hidden></div>
+    <div id="reportStress" class="report-content" hidden></div>
   </section>
 </main>
 
@@ -290,6 +374,9 @@
 <!-- 图表与热力图：本地 lib/ 优先，无 CDN 依赖，断网也能完整运行 -->
 <script src="lib/echarts.min.js"></script>
 <script src="lib/simpleheat.min.js"></script>
+<!-- 报告导出（PNG 长图 / PDF）：本地 lib，无 CDN 依赖，断网可用 -->
+<script src="lib/html2canvas.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
 
 <!-- 本地开发覆盖（config.local.js 已被 .gitignore 忽略，部署时不存在，404 无害）：提供 window.BMAP_AK_OVERRIDE -->
 <script src="config.local.js"></script>
@@ -314,8 +401,135 @@
 <script src="js/gap.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/report.js"></script>
+<script src="js/accessibility.js"></script>
+<script src="js/recommend.js"></script>
+<script src="js/stress.js"></script>
+<!-- 报告导出：PNG 长图 / PDF（依赖上面两个 lib） -->
+<script src="js/export.js"></script>
 <script src="js/compare.js"></script>
 <script src="js/time-weather.js"></script>
+<script src="js/fullscreen.js"></script>
 <script src="js/app.js"></script>
+
+<!-- 生活圈参数设置弹窗（默认隐藏，点左侧「⚙ 生活圈设置」打开） -->
+<div class="modal-mask" id="circleSettingsMask">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="生活圈参数设置">
+    <div class="modal-head">
+      <h3>生活圈参数设置</h3>
+      <button type="button" class="modal-x" id="circleSettingsClose" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="ms-row">
+        <label for="walkMinSelect">生活圈时间</label>
+        <select id="walkMinSelect" aria-label="生活圈步行时长（分钟）">
+          <option value="5">5 分钟</option>
+          <option value="10">10 分钟</option>
+          <option value="15" selected>15 分钟</option>
+          <option value="20">20 分钟</option>
+          <option value="30">30 分钟</option>
+        </select>
+      </div>
+      <div class="ms-row">
+        <label for="activeTypeSelect">主分析人群</label>
+        <select id="activeTypeSelect" aria-label="主分析人群" title="等时圈 / 盲区 / 评分按此人群的步行速度计算">
+          <option value="adult" selected>🔵 成年人</option>
+          <option value="youth">🟢 青年人</option>
+          <option value="elder">🟠 老年人</option>
+          <option value="child">🟣 儿童</option>
+          <option value="wheel">🔴 轮椅</option>
+        </select>
+      </div>
+      <div class="ms-row">
+        <label for="mainSpeed">主人群速度</label>
+        <div class="ms-speed-wrap">
+          <input id="mainSpeed" class="bw-speed" type="number" min="20" max="160" step="5" value="80" aria-label="主人群步行速度(m/min)" />
+          <span class="bw-unit">m/min</span>
+        </div>
+      </div>
+      <div class="ms-divider"></div>
+      <div class="ms-subtitle">各类人员步行速度</div>
+      <div class="bw-types ms-types" id="walkTypes">
+        <div class="bw-type is-active" data-key="adult">
+          <span class="bw-dot" style="background:#5a9bff"></span>
+          <span class="bw-tlabel">成年人</span>
+          <input class="bw-speed" type="number" min="20" max="160" step="5" value="80" data-key="adult" aria-label="成年人步行速度(m/min)" />
+          <span class="bw-unit">m/min</span>
+          <span class="bw-tag">主</span>
+        </div>
+        <div class="bw-type" data-key="youth">
+          <span class="bw-dot" style="background:#00d68f"></span>
+          <span class="bw-tlabel">青年人</span>
+          <input class="bw-speed" type="number" min="20" max="160" step="5" value="100" data-key="youth" aria-label="青年人步行速度(m/min)" />
+          <span class="bw-unit">m/min</span>
+          <span class="bw-tag">主</span>
+        </div>
+        <div class="bw-type" data-key="elder">
+          <span class="bw-dot" style="background:#ffb547"></span>
+          <span class="bw-tlabel">老年人</span>
+          <input class="bw-speed" type="number" min="20" max="160" step="5" value="50" data-key="elder" aria-label="老年人步行速度(m/min)" />
+          <span class="bw-unit">m/min</span>
+          <span class="bw-tag">主</span>
+        </div>
+        <div class="bw-type" data-key="child">
+          <span class="bw-dot" style="background:#ab47bc"></span>
+          <span class="bw-tlabel">儿童</span>
+          <input class="bw-speed" type="number" min="20" max="160" step="5" value="60" data-key="child" aria-label="儿童步行速度(m/min)" />
+          <span class="bw-unit">m/min</span>
+          <span class="bw-tag">主</span>
+        </div>
+        <div class="bw-type" data-key="wheel">
+          <span class="bw-dot" style="background:#ff5470"></span>
+          <span class="bw-tlabel">轮椅</span>
+          <input class="bw-speed" type="number" min="20" max="160" step="5" value="40" data-key="wheel" aria-label="轮椅步行速度(m/min)" />
+          <span class="bw-unit">m/min</span>
+          <span class="bw-tag">主</span>
+        </div>
+      </div>
+      <div class="ms-foot">
+        <span class="bw-readout">可达半径（主）<b id="bwRadius">1,200</b> 米</span>
+        <label class="bw-cmp" title="在地图上用不同颜色展示每类人员的步行可达圈">
+          <input type="checkbox" id="cmpCircles" /> 展示各人员步行区域
+        </label>
+      </div>
+      <div class="ms-divider"></div>
+      <div class="ms-subtitle">服务盲区识别</div>
+      <div class="ms-gap-grid">
+        <div class="ms-gap-cell">
+          <label for="gapRadius">判定半径</label>
+          <div class="ms-speed-wrap">
+            <input id="gapRadius" class="bw-speed" type="number" min="100" max="3000" step="50" value="1000" aria-label="盲区判定半径(米)" />
+            <span class="bw-unit">米</span>
+          </div>
+        </div>
+        <div class="ms-gap-cell">
+          <label for="gapSevere">重度阈值</label>
+          <div class="ms-speed-wrap">
+            <input id="gapSevere" class="bw-speed" type="number" min="100" max="5000" step="50" value="1500" aria-label="重度盲区分级阈值(米)" />
+            <span class="bw-unit">米</span>
+          </div>
+        </div>
+        <div class="ms-gap-cell">
+          <label for="gapGrid">采样间距</label>
+          <div class="ms-speed-wrap">
+            <input id="gapGrid" class="bw-speed" type="number" min="40" max="400" step="10" value="120" aria-label="盲区栅格采样间距(米)" />
+            <span class="bw-unit">米</span>
+          </div>
+        </div>
+      </div>
+      <p class="ms-hint">配套标准：周边 1 公里内无菜市场 / 药店 / 学校即判为盲区（手动修改后不再随生活圈时长缩放）。采样间距越小越精确，但点位数量按平方增长。</p>
+      <div class="ms-row ms-row-col">
+        <label>判定设施</label>
+        <div class="ms-checks">
+          <label class="ms-check"><input type="checkbox" data-gapkey="market" checked /> 菜市场</label>
+          <label class="ms-check"><input type="checkbox" data-gapkey="pharmacy" checked /> 药店</label>
+          <label class="ms-check"><input type="checkbox" data-gapkey="school" checked /> 学校</label>
+        </div>
+      </div>
+    <div class="modal-foot">
+      <button type="button" class="btn ghost" id="circleSettingsReset">恢复默认</button>
+      <button type="button" class="btn primary" id="circleSettingsDone">完成</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

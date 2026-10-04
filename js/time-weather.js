@@ -116,6 +116,8 @@
         document.getElementById('timeDate').textContent = d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate());
         var weeks = ['日','一','二','三','四','五','六'];
         document.getElementById('timeWeek').textContent = '星期' + weeks[d.getDay()];
+        var iwClock = document.getElementById('iwClock');
+        if (iwClock) iwClock.textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
     }
     function startClock() {
         paintTime();
@@ -124,8 +126,25 @@
     }
 
     /* ========== 天气抓取 ========== */
+    // 主源：Open-Meteo（免费、无 Key、CORS）；备用源：vvhan 聚合接口（国内直连友好）。
+    // 策略：超时 8s + 主源重试 1 次 + 备用源兜底，任一成功即渲染，避免「一次失败永远不可用」。
     var _wxTimer = null;
-    var _wxInflight = null;
+    var _wxSeq = 0;          // 请求序号：仅最新一次请求允许写入 UI，防旧响应覆盖新响应
+
+    function fetchJSON(url, timeoutMs) {
+        return new Promise(function (resolve, reject) {
+            var ctrl = ('AbortController' in global) ? new AbortController() : null;
+            var timer = setTimeout(function () {
+                if (ctrl) { try { ctrl.abort(); } catch (_) {} }
+                reject(new Error('请求超时'));
+            }, timeoutMs || 8000);
+            fetch(url, { mode: 'cors', signal: ctrl ? ctrl.signal : undefined }).then(function (r) {
+                clearTimeout(timer);
+                if (!r.ok) { reject(new Error('HTTP ' + r.status)); return; }
+                return r.json().then(resolve, function (e) { reject(e); });
+            }).catch(function (e) { clearTimeout(timer); reject(e); });
+        });
+    }
 
     function findCoord(cityName) {
         if (!cityName) return null;
@@ -155,16 +174,71 @@
         });
     }
 
-    function fetchWeather(coord) {
+    function fetchOpenMeteo(coord) {
         var url = 'https://api.open-meteo.com/v1/forecast'
             + '?latitude=' + coord.lat
             + '&longitude=' + coord.lng
             + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature'
             + '&timezone=Asia%2FShanghai';
-        return fetch(url, { mode: 'cors' }).then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-        });
+        return fetchJSON(url, 8000);
+    }
+
+    /* 备用源 1：wttr.in（国际，CORS *，国内多数网络可达；按城市名查询，无需坐标） */
+    function fetchWttr(cityName) {
+        var url = 'https://wttr.in/' + encodeURIComponent(cityName) + '?format=j1';
+        return fetchJSON(url, 8000);
+    }
+
+    /* wttr.in 的 weatherDesc 是英文 → 关键字映射为中文 + emoji */
+    function wttrDescToCn(t) {
+        t = String(t || '');
+        if (t.indexOf('Thunder') >= 0) return { ic: '⛈️', cn: '雷暴' };
+        if (t.indexOf('Snow') >= 0 || t.indexOf('sleet') >= 0) return { ic: '❄️', cn: '雪' };
+        if (t.indexOf('Drizzle') >= 0) return { ic: '🌦️', cn: '毛毛雨' };
+        if (t.indexOf('Rain') >= 0 || t.indexOf('Showers') >= 0) return { ic: '🌧️', cn: '雨' };
+        if (t.indexOf('Ice') >= 0) return { ic: '🌧️', cn: '冻雨' };
+        if (t.indexOf('Mist') >= 0 || t.indexOf('Fog') >= 0 || t.indexOf('haze') >= 0) return { ic: '🌫️', cn: '雾' };
+        if (t.indexOf('Overcast') >= 0) return { ic: '☁️', cn: '阴' };
+        if (t.indexOf('Cloudy') >= 0) return { ic: '⛅', cn: '多云' };
+        if (t.indexOf('Clear') >= 0 || t.indexOf('Sunny') >= 0) return { ic: '☀️', cn: '晴' };
+        return { ic: '🌡️', cn: t || '未知' };
+    }
+
+    function paintWttr(cityName, payload) {
+        var cur = (payload && payload.current_condition && payload.current_condition[0]) || null;
+        if (!cur) throw new Error('wttr 返回为空');
+        var cn = wttrDescToCn(cur.weatherDesc && cur.weatherDesc[0] && cur.weatherDesc[0].value);
+        var ic = document.getElementById('wxIcon');
+        var city = document.getElementById('wxCity');
+        var tEl  = document.getElementById('wxTemp');
+        var dEl  = document.getElementById('wxDesc');
+        var hEl  = document.getElementById('wxHum');
+        var wEl  = document.getElementById('wxWind');
+        if (ic)  ic.textContent  = cn.ic;
+        if (city) city.textContent = cityName || '当前城市';
+        if (tEl)  tEl.textContent  = (cur.temp_C !== undefined && cur.temp_C !== '') ? Math.round(Number(cur.temp_C)) : '--';
+        if (dEl)  dEl.textContent  = cn.cn;
+        if (hEl)  hEl.textContent  = (cur.humidity !== undefined) ? cur.humidity : '--';
+        if (wEl)  wEl.textContent  = (cur.windspeedKmph !== undefined) ? cur.windspeedKmph + ' km/h' : '--';
+    }
+
+    /* 备用源 2：vvhan 聚合天气（按城市名查询，无需坐标） */
+    function fetchVvhan(cityName) {
+        var url = 'https://api.vvhan.com/api/weather?city=' + encodeURIComponent(cityName);
+        return fetchJSON(url, 8000);
+    }
+
+    /* vvhan 天气现象文本 → emoji（按关键字粗匹配即可） */
+    function wxTextToIcon(t) {
+        t = String(t || '');
+        if (t.indexOf('雷') >= 0) return '⛈️';
+        if (t.indexOf('雪') >= 0) return '❄️';
+        if (t.indexOf('雨') >= 0) return '🌧️';
+        if (t.indexOf('雾') >= 0 || t.indexOf('霾') >= 0) return '🌫️';
+        if (t.indexOf('阴') >= 0) return '☁️';
+        if (t.indexOf('云') >= 0) return '⛅';
+        if (t.indexOf('晴') >= 0) return '☀️';
+        return '🌡️';
     }
 
     function paintWeather(cityName, payload) {
@@ -188,54 +262,116 @@
         if (wEl)  wEl.textContent  = wind;
     }
 
+    function paintVvhan(cityName, payload) {
+        var info = (payload && payload.info) || (payload && payload.data) || {};
+        var type = info.type || info.weather || '未知';
+        var hi = parseInt(String(info.high || '').replace(/[^0-9]/g, ''), 10);
+        var lo = parseInt(String(info.low  || '').replace(/[^0-9]/g, ''), 10);
+        var temp = (isNaN(hi) && isNaN(lo)) ? '--'
+                 : Math.round(((isNaN(hi) ? lo : hi) + (isNaN(lo) ? hi : lo)) / 2);
+        var ic = document.getElementById('wxIcon');
+        var city = document.getElementById('wxCity');
+        var tEl  = document.getElementById('wxTemp');
+        var dEl  = document.getElementById('wxDesc');
+        var hEl  = document.getElementById('wxHum');
+        var wEl  = document.getElementById('wxWind');
+        if (ic)  ic.textContent  = wxTextToIcon(type);
+        if (city) city.textContent = (info.city || cityName || '当前城市');
+        if (tEl)  tEl.textContent  = temp;
+        if (dEl)  dEl.textContent  = type;
+        if (hEl)  hEl.textContent  = '--';
+        if (wEl)  wEl.textContent  = (info.fengxiang || info.wind || '--');
+    }
+
     function paintWeatherError(cityName, err) {
         var ic = document.getElementById('wxIcon');
         var city = document.getElementById('wxCity');
         var tEl  = document.getElementById('wxTemp');
         var dEl  = document.getElementById('wxDesc');
+        var wEl  = document.getElementById('widget-weather');
+        var reason = (err && err.message) || String(err || '未知错误');
         if (ic)  ic.textContent  = '🌡️';
         if (city) city.textContent = cityName || '当前城市';
         if (tEl)  tEl.textContent  = '--';
-        if (dEl)  dEl.textContent  = '天气暂不可用';
-        global.__diag && global.__diag('天气获取失败：' + (err && err.message || err), 'warn');
+        if (dEl)  dEl.textContent  = '天气不可用·点击重试';
+        if (wEl)  wEl.title = '天气获取失败：' + reason + '；点击卡片可重试';
+        global.__diag && global.__diag('天气获取失败：' + reason, 'warn');
     }
 
     async function updateWeather(cityName) {
-        if (_wxInflight) { try { _wxInflight.abort(); } catch (_) {} }
-        var ctrl = ('AbortController' in global) ? new AbortController() : null;
-        _wxInflight = ctrl;
-        var raw = (cityName || document.getElementById('citySelect').value || '').trim();
+        var my = ++_wxSeq;   // 新请求使旧请求失效
+        var raw = (cityName || '').trim();
+        if (!raw) {
+            // 未显式传城市：从「省 / 市」下拉解析（含直辖市「市辖区」占位处理）
+            var provEl = document.getElementById('provSelect');
+            var cityEl = document.getElementById('citySelect');
+            if (global.RegionPicker && global.RegionPicker.cityOnly) {
+                raw = global.RegionPicker.cityOnly(provEl, cityEl) || '';
+            }
+            if (!raw && cityEl) raw = (cityEl.value || '').trim();
+        }
         // 直辖市“市辖区/县”占位 → 用省份名查天气
         var name = raw;
-        if (global.RegionPicker && global.RegionPicker.cityOnly) {
-            var prov = document.getElementById('provSelect');
-            var city = document.getElementById('citySelect');
-            var resolved = global.RegionPicker.cityOnly(prov, city);
-            if (resolved) name = resolved;
+        if (global.RegionPicker && global.RegionPicker.cityOnly && document.getElementById('citySelect')) {
+            var resolved = global.RegionPicker.cityOnly(
+                document.getElementById('provSelect'), document.getElementById('citySelect'));
+            if (resolved && (!raw || SKIP_LIKE_CITY.test(raw))) name = resolved;
         }
         if (!name) return;
+
         var coord = findCoord(name);
-        if (!coord) {
-            coord = await geocodeCoord(name);
+        if (!coord) coord = await geocodeCoord(name);
+
+        // 主源两次 → 备用源 wttr.in → 备用源 vvhan
+        var lastErr = null;
+        if (coord) {
+            for (var i = 0; i < 2; i++) {
+                try {
+                    var data = await fetchOpenMeteo(coord);
+                    if (my !== _wxSeq) return;   // 已有更新请求，丢弃本次结果
+                    paintWeather(name, data);
+                    return;
+                } catch (e) { lastErr = e; }
+                await new Promise(function (r) { setTimeout(r, 600 * (i + 1)); });
+                if (my !== _wxSeq) return;
+            }
         }
-        if (!coord) {
-            paintWeatherError(name, '未找到该城市坐标');
-            return;
-        }
+        // wttr.in 不需要坐标，主源失败（含未取到坐标）时也值得一试
         try {
-            var data = await fetchWeather(coord);
-            if (ctrl && ctrl.signal && ctrl.signal.aborted) return;
-            paintWeather(name, data);
-        } catch (e) {
-            if (e && e.name === 'AbortError') return;
-            paintWeatherError(name, e);
-        }
+            var wdata = await fetchWttr(name);
+            if (my !== _wxSeq) return;
+            paintWttr(name, wdata);
+            return;
+        } catch (eW) { lastErr = lastErr || eW; }
+        try {
+            var vdata = await fetchVvhan(name);
+            if (my !== _wxSeq) return;
+            if (vdata && (vdata.success || vdata.info || vdata.data)) {
+                paintVvhan(name, vdata);
+                return;
+            }
+            lastErr = new Error('备用源返回异常');
+        } catch (e2) { lastErr = lastErr || e2; }
+        if (my !== _wxSeq) return;
+        paintWeatherError(name, coord ? lastErr : new Error('未找到该城市坐标'));
     }
+
+    // 与 region.js 的「市辖区 / 县」占位一致的判断（本地兜底，避免依赖未加载）
+    var SKIP_LIKE_CITY = /^(市辖区|县)$/;
 
     function startWeather() {
         var city = document.getElementById('citySelect');
+        var prov = document.getElementById('provSelect');
         if (city) city.addEventListener('change', function () { updateWeather(city.value); });
-        updateWeather(city ? city.value : '北京市');
+        // 直辖市只改省下拉也会换城市（市下拉是禁用的占位），省变化同样刷新天气
+        if (prov) prov.addEventListener('change', function () { updateWeather(); });
+        // 点击天气卡片手动重试（网络受限 / 跟踪保护拦截时的自救入口）
+        var wxWidget = document.getElementById('widget-weather');
+        if (wxWidget) wxWidget.addEventListener('click', function () { updateWeather(); });
+        // 启动即抓一次：此时区域选择器可能尚未绑定，updateWeather 内部会自行解析城市；
+        // 再延迟补抓一次，覆盖「选择器晚绑定 / 首次网络抖动」的情况。
+        updateWeather();
+        setTimeout(function () { updateWeather(); }, 1500);
         if (_wxTimer) clearInterval(_wxTimer);
         _wxTimer = setInterval(function () {
             var c = document.getElementById('citySelect');

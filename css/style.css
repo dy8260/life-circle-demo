@@ -50,25 +50,192 @@ body::before {
 /* ============== TOPBAR ============== */
 .topbar {
     position: relative; z-index: 5;
-    display: grid;
-    grid-template-columns: 320px 1fr auto;
-    align-items: center;
-    padding: 14px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; flex-wrap: nowrap;   /* 单行排布：换行会导致设置按钮掉到第二行 */
+    padding: 8px 10px;
     background: linear-gradient(180deg, rgba(20,32,64,0.85), rgba(20,32,64,0.55));
     border-bottom: 1px solid var(--card-border);
     backdrop-filter: blur(8px);
     box-shadow: var(--shadow);
 }
+/* 左侧品牌区：整体压紧（图标 28px + 间距 8px），把横向空间让给右侧地址栏与按钮。
+   不参与收缩（标题保持完整）；空间不足时优先让「生活圈设置」按钮放弃摘要。 */
 .brand {
-    display: flex; align-items: center; gap: 12px;
-    min-width: 0;
+    display: flex; align-items: center; gap: 8px;
+    flex: 0 0 auto;
 }
+/* 右侧区：地址栏 A / B 整体靠右对齐
+   垂直方向居中：对比关闭时地址 A 单行相对品牌列居中（下方不再留空白），
+   开启对比时 A+B 两行自然填满高度 */
+.topbar-right {
+    display: flex; flex-direction: column; gap: 6px;
+    align-items: flex-end;
+    justify-content: center;
+    flex: 1 1 auto; min-width: 0;
+}
+/* 左侧「生活圈设置」按钮：与标题同一行，内联单行。
+   flex: 0 1 auto —— 空间不足时先让出摘要（.bw-set-sum 自带省略号），
+   保证右侧「开始体检 / 关闭对比 / 重置」不被挤出视口。 */
+.bw-settings-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    flex: 0 1 auto;
+    padding: 8px 10px;
+    background: rgba(20, 32, 64, 0.55);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    backdrop-filter: blur(6px);
+    color: var(--text); font-size: 13px; cursor: pointer;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.bw-settings-btn:hover { border-color: var(--primary-glow); box-shadow: 0 0 0 3px rgba(91,155,255,0.18); }
+.bw-set-ico { font-size: 15px; color: var(--primary-glow); }
+.bw-set-text { color: var(--text); font-weight: 600; white-space: nowrap; }
+.bw-set-sum {
+    min-width: 0; max-width: 116px; text-align: right;
+    color: var(--text-sub); font-size: 12px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+}
+.bw-set-caret { color: var(--text-sub); font-size: 11px; }
+.bw-settings-btn[aria-expanded="true"] {
+    border-color: var(--primary-glow);
+    background: linear-gradient(180deg, rgba(91,155,255,0.22), rgba(20,32,64,0.6));
+}
+
+/* ===== 生活圈参数设置弹窗 ===== */
+.modal-mask {
+    position: fixed; inset: 0; z-index: 1000;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(6, 12, 28, 0.55);
+    backdrop-filter: blur(3px);
+}
+.modal-mask.is-open { display: flex; }
+.modal-card {
+    width: min(900px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px); overflow: auto;
+    background: linear-gradient(180deg, #122146, #0d1b3d);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+    color: var(--text);
+    animation: modalIn .18s ease-out;
+}
+@keyframes modalIn { from { transform: translateY(10px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--card-border);
+}
+.modal-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.modal-x {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--card-border);
+    background: rgba(20,32,64,0.6); color: var(--text-sub); font-size: 18px; line-height: 1;
+    cursor: pointer; transition: all .15s;
+}
+.modal-x:hover { border-color: var(--primary-glow); color: #fff; }
+.modal-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.ms-row { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 10px; }
+.ms-row > label { color: var(--text-sub); font-size: 13px; white-space: nowrap; }
+.ms-row select {
+    height: 34px; border-radius: 8px; border: 1px solid var(--card-border);
+    background: rgba(20,32,64,0.85); color: var(--text);
+    padding: 0 10px; font-size: 13px; outline: none; cursor: pointer; appearance: none;
+    width: 100%; padding-right: 24px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--primary-glow) 50%),
+                      linear-gradient(135deg, var(--primary-glow) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    transition: border-color .2s, box-shadow .2s;
+}
+.ms-row select option { background: #0d1b3d; color: var(--text); }
+.ms-row select:focus { border-color: var(--primary-glow); box-shadow: 0 0 0 3px rgba(91,155,255,0.2); }
+.ms-speed-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.ms-speed-wrap .bw-speed { width: 110px; height: 34px; }
+.ms-divider { height: 1px; background: var(--card-border); margin: 2px 0; }
+.ms-subtitle { color: var(--text-sub); font-size: 12px; font-weight: 600; letter-spacing: .3px; }
+/* 盲区配置：判定设施多选行（纵向排列的复选组） */
+.ms-row-col { display: flex; flex-direction: column; gap: 6px; }
+.ms-row-col > label { color: var(--text-sub); font-size: 13px; white-space: nowrap; }
+.ms-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.ms-check {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--text); font-size: 13px; cursor: pointer; user-select: none;
+}
+.ms-check input { width: 15px; height: 15px; accent-color: var(--primary-glow); cursor: pointer; }
+.ms-hint { margin: 2px 0; font-size: 11.5px; line-height: 1.45; color: var(--text-sub); }
+/* 盲区识别三项（判定半径 / 重度阈值 / 采样间距）并排三列，压缩纵向高度 */
+.ms-gap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; }
+.ms-gap-cell { display: flex; flex-direction: column; gap: 2px; }
+.ms-gap-cell > label { color: var(--text-sub); font-size: 12px; white-space: nowrap; }
+.ms-gap-cell .ms-speed-wrap { width: 100%; }
+.ms-gap-cell .bw-speed { width: 100%; }
+.ms-types {
+    background: rgba(8, 16, 38, 0.5); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 6px 8px;
+}
+/* 弹窗加宽后，各类人员速度列表改三列，进一步压缩纵向高度以去掉滚动条 */
+.bw-types.ms-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 10px; }
+.bw-types.ms-types .bw-type { padding: 2px 5px; }
+.ms-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    flex-wrap: wrap;
+}
+.modal-foot {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 12px 16px; border-top: 1px solid var(--card-border);
+}
+/* 展开后的逐类速度编辑器（复用于弹窗内） */
+.bw-types { display: flex; flex-direction: column; gap: 4px; }
+.bw-type {
+    display: grid;
+    grid-template-columns: 12px 1fr 64px 40px auto;
+    align-items: center; gap: 7px;
+    padding: 3px 7px; border-radius: 7px;
+    border: 1px solid transparent; cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.bw-type:hover { background: rgba(91,155,255,0.10); }
+.bw-type.is-active {
+    background: rgba(91,155,255,0.16);
+    border-color: var(--primary-glow);
+}
+.bw-dot { width: 10px; height: 10px; border-radius: 50%; }
+.bw-tlabel { color: var(--text); font-size: 12px; white-space: nowrap; }
+.bw-type.is-active .bw-tlabel { color: #fff; font-weight: 600; }
+.bw-speed {
+    width: 100%; min-width: 0; height: 26px; border-radius: 6px;
+    border: 1px solid var(--card-border); background: rgba(20,32,64,0.85);
+    color: var(--text); padding: 0 6px; font-size: 12px; outline: none;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .2s, box-shadow .2s;
+}
+.bw-speed:focus { border-color: var(--primary-glow); box-shadow: 0 0 0 3px rgba(91,155,255,0.2); }
+.bw-speed::-webkit-outer-spin-button,
+.bw-speed::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bw-unit { color: var(--text-sub); font-size: 11px; white-space: nowrap; }
+.bw-tag {
+    font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 4px;
+    background: var(--primary-glow); color: #fff; white-space: nowrap;
+    opacity: 0; transition: opacity .15s;
+}
+.bw-type.is-active .bw-tag { opacity: 1; }
+.bw-readout { color: var(--text-sub); font-size: 12px; }
+.bw-readout > b { color: var(--primary-glow); font-variant-numeric: tabular-nums; }
+/* 底部行：可达半径（左）+ 对比叠加开关（右） */
+.ms-foot { justify-content: space-between; }
+.bw-cmp {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--text-sub); font-size: 12px; white-space: nowrap;
+    cursor: pointer; user-select: none;
+}
+.bw-cmp input { accent-color: var(--primary-glow); cursor: pointer; margin: 0; }
 .logo-pulse {
-    width: 38px; height: 38px;
+    width: 28px; height: 28px;
     border-radius: 50%;
     background: radial-gradient(circle, var(--primary-glow), var(--primary) 60%);
     position: relative;
     box-shadow: 0 0 24px rgba(91, 155, 255, 0.5);
+    flex: 0 0 auto;
 }
 .logo-pulse span {
     position: absolute; inset: 0;
@@ -82,14 +249,14 @@ body::before {
     100% { transform: scale(1.8); opacity: 0;   }
 }
 .brand-text h1 {
-    margin: 0; font-size: 18px; letter-spacing: 1px; font-weight: 600;
+    margin: 0; font-size: 20px; letter-spacing: 0.5px; font-weight: 600;
+    white-space: nowrap;
 }
-.brand-text small { color: var(--text-sub); font-size: 12px; }
+.brand-text small { color: var(--text-sub); font-size: 13px; white-space: nowrap; }
 
 .addr-bar {
     display: flex; gap: 8px; align-items: center; padding: 6px 16px;
     position: relative;  /* 让 ⓘ 提示 popover 以此为定位锚 */
-    grid-column: 2;     /* 落到 topbar 第二列，与 .brand 同行 */
 }
 .addr-bar select,
 .addr-bar input {
@@ -114,12 +281,12 @@ body::before {
 .addr-bar select option { background: var(--bg2, #0d1b3d); color: var(--text); }
 /* 默认地址栏（A 行 / B 行）共用的 select/input 基础宽度；
    实际布局由 .addr-bar-primary/secondary 的 grid 模板控制，这里只兜底最小宽度 */
-.addr-bar .addr-prov { width: 100%; min-width: 80px; }
-.addr-bar .addr-city { width: 100%; min-width: 70px; }
-.addr-bar .addr-area { width: 100%; min-width: 80px; }
+.addr-bar .addr-prov { width: 100%; min-width: 74px; }
+.addr-bar .addr-city { width: 100%; min-width: 68px; }
+.addr-bar .addr-area { width: 100%; min-width: 72px; }
 .addr-bar input.addr-detail,
 .addr-bar input#addrInput,
-.addr-bar input#addrInputB { width: 100%; min-width: 220px; }
+.addr-bar input#addrInputB { width: 100%; min-width: 100px; }
 .addr-bar input:focus,
 .addr-bar select:focus {
     border-color: var(--primary-glow);
@@ -140,12 +307,12 @@ body::before {
    列 1：hint/close 小按钮；列 2：主按钮；列 3：对比模式/空；列 4：重置/空 */
 .addr-actions {
     display: grid;
-    grid-template-columns: 36px 88px 96px 64px;
-    column-gap: 8px;
+    grid-template-columns: 30px 78px 84px 56px;
+    column-gap: 6px;
     align-items: center;
     justify-items: stretch;
 }
-.addr-actions > .hint-btn,
+/* 主按钮（开始体检 / 对比模式 / 重置）：填满所在列，超长文本走省略号，不撑破整行 */
 .addr-actions > .btn {
     width: 100%; height: 36px;
     min-width: 0;
@@ -154,6 +321,14 @@ body::before {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+/* 小圆钮（ⓘ 地址输入说明 / × 关闭对比）：固定 30×30 正圆并居中，
+   不随操作区拉伸成椭圆（此前 height:36px + width:100% 会把它压变形）。 */
+.addr-actions > .hint-btn {
+    width: 30px; height: 30px;
+    padding: 0;
+    justify-self: center;
+    align-self: center;
 }
 
 /* A/B 标签徽章 */
@@ -174,24 +349,26 @@ body::before {
    设计：两行用同一个 grid 模板的子网格，两行严格对齐 */
 .addr-bar-primary,
 .addr-bar-secondary {
-    grid-column: 2;
     /* 子网格：A-tag | 省 | 市 | 区 | 详细 | actions
-       让两行的省/市/区/详细 严格等宽 */
+       两行共用同一模板，省/市/区/详细 严格等宽（A、B 两行对齐）。
+       width:100% —— 地址行铺满右侧剩余宽度：
+       此前在弹性容器内按内容宽度收窄并右对齐，顶栏中段会空出一块无内容区域。 */
     display: grid;
+    width: 100%;
     grid-template-columns:
-        22px                 /* A/B 标签徽章 */
-        minmax(96px, 1fr)    /* 省 */
-        minmax(90px, 1fr)    /* 市 */
-        minmax(100px, 1fr)   /* 区 */
-        minmax(220px, 2fr)   /* 详细 */
-        auto;                /* 右侧按钮区 */
-    column-gap: 8px;
+        22px                  /* A/B 标签徽章 */
+        minmax(74px, 116px)   /* 省（上限 116px：容纳「内蒙古自治区」等长名不裁切） */
+        minmax(68px, 116px)   /* 市 */
+        minmax(72px, 116px)   /* 区 */
+        minmax(100px, 1fr)    /* 详细地址：吃下剩余宽度，输入更从容 */
+        auto;                 /* 右侧按钮区 */
+    column-gap: 6px;
     align-items: center;
 }
-.addr-bar-primary { padding: 6px 16px 0; }
+.addr-bar-primary { padding: 6px 10px 0; }
 .addr-bar-secondary {
     margin: 0;
-    padding: 6px 16px;
+    padding: 6px 10px;
     border-top: 1px dashed var(--card-border);
     background: linear-gradient(180deg, rgba(91,155,255,0.04), transparent);
     animation: cmpSlideIn .25s ease;
@@ -289,41 +466,6 @@ body::before {
     color: var(--text-sub);
 }
 
-/* 实时 HUD：右上角经度 / 纬度 / 路网采样进度 */
-.hud {
-    display: flex; gap: 6px;
-    align-items: stretch;
-    background: rgba(20,32,64,0.85);
-    border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 6px 8px;
-    backdrop-filter: blur(8px);
-    box-shadow: var(--shadow);
-    font-family: Consolas, "Courier New", monospace;
-    cursor: pointer;
-    transition: border-color .2s;
-}
-.hud:hover { border-color: var(--primary-glow); }
-.hud-row {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 0 8px; line-height: 1.1;
-    border-right: 1px solid rgba(120,180,255,0.10);
-}
-.hud-row:last-child { border-right: none; }
-.hud-row b {
-    font-size: 9px; color: var(--text-sub);
-    font-weight: 500; letter-spacing: 1px;
-}
-.hud-row i {
-    font-style: normal;
-    font-size: 12px; color: var(--primary-glow);
-    font-weight: 600; padding-top: 3px;
-    font-variant-numeric: tabular-nums;
-}
-/* 收起态：只保留前两项（经度 / 纬度），隐藏路网进度 */
-.hud.collapsed .hud-row:not(:first-child):not(:nth-child(2)) { display: none; }
-.hud.collapsed { padding: 6px 10px; }
-
 .btn {
     height: 38px;
     border-radius: 8px;
@@ -361,8 +503,8 @@ body::before {
     display: grid;
     grid-template-columns: 1fr 380px;
     grid-template-rows: 1fr auto;
-    gap: 14px;
-    padding: 14px;
+    gap: 10px;
+    padding: 10px;
     /* 顶栏高度会变（对比模式下多出地址 B 行），由 app.js 量出真实高度写入 --header-h */
     height: calc(100vh - var(--header-h, 70px));
 }
@@ -378,11 +520,67 @@ body::before {
 }
 #map { position: absolute; inset: 0; }
 
-/* ========= 趣味小部件：实时时间 + 当前城市天气（替代原工具按钮） ========= */
+/* ========= 趣味小部件：实时时间 + 当前城市天气（可收起） ========= */
 .info-widgets {
-    position: absolute; top: 12px; right: 12px;
-    display: flex; gap: 10px;
+    position: absolute; top: 18px; right: 12px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
     z-index: 10;
+}
+.iw-head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px; cursor: pointer; user-select: none;
+    background: rgba(20, 32, 64, 0.85);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+    min-width: 64px; justify-content: center;
+    transition: background .15s;
+}
+.iw-head:hover { background: rgba(91,155,255,0.18); }
+.iw-toggle { color: var(--primary-glow); font-size: 10px; width: 10px; text-align: center; flex: none; }
+.iw-clock {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    font-family: Consolas, "Courier New", monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+.iw-body { display: flex; gap: 10px; }
+.info-widgets.is-collapsed .iw-body { display: none; }
+/* 展开态：头部只保留折叠箭头（时间显示在完整时钟部件里，避免重复） */
+.info-widgets:not(.is-collapsed) .iw-clock { display: none; }
+
+/* ========= 底图类型切换：普通 / 卫星 / 卫星+路网 ========= */
+.maptype-switch {
+    position: absolute; top: 12px; left: 12px;
+    z-index: 10;
+    display: flex;
+    background: rgba(20, 32, 64, 0.85);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    user-select: none;
+}
+.maptype-switch .mt-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-sub);
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: color .15s, background .15s;
+    border-right: 1px solid var(--card-border);
+}
+.maptype-switch .mt-btn:last-child { border-right: none; }
+.maptype-switch .mt-btn:hover { color: var(--text); background: rgba(91,155,255,0.12); }
+.maptype-switch .mt-btn.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, #3a7afe, #2f6bff);
+    font-weight: 600;
 }
 .widget {
     background: rgba(20, 32, 64, 0.85);
@@ -494,23 +692,99 @@ body::before {
     box-shadow: 0 0 0 2px var(--bg1);
 }
 
-/* 图例 */
+/* 图例（可收起，两列；超高时内部滚动，保证任何屏幕都展示得开） */
 .legend {
     position: absolute; bottom: 12px; left: 12px;
     background: rgba(20,32,64,0.85);
     border: 1px solid var(--card-border);
     border-radius: 10px;
-    padding: 10px 14px;
     backdrop-filter: blur(8px);
     z-index: 10;
+    min-width: 264px;
+    max-height: calc(100% - 24px);   /* 相对地图面板，留 12px 上下边距 */
+    display: flex; flex-direction: column;
+    overflow: hidden;
 }
-.legend h4 { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); letter-spacing: 1px; }
+/* 可收起图例：头部（点击折叠/展开） */
+.legend-head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid rgba(120,180,255,0.14);
+    transition: background .15s;
+}
+.legend-head:hover { background: rgba(91,155,255,0.12); }
+.lg-toggle { color: var(--primary-glow); font-size: 10px; width: 12px; text-align: center; flex: none; }
+.lg-title { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: .3px; }
+.legend-body { display: flex; gap: 20px; padding: 10px 14px; overflow-y: auto; min-height: 0; }
+.legend-body::-webkit-scrollbar { width: 6px; }
+.legend-body::-webkit-scrollbar-thumb { background: rgba(120,180,255,0.25); border-radius: 3px; }
+.legend.is-collapsed .legend-body { display: none; }
+.legend.is-collapsed .legend-head { border-bottom: none; }
+.legend-col { display: flex; flex-direction: column; gap: 6px; min-width: 116px; }
+.legend-col h5 {
+    margin: 0 0 4px; font-size: 11px; color: var(--text-sub);
+    font-weight: 600; letter-spacing: .5px;
+    border-bottom: 1px dashed rgba(120,180,255,0.14); padding-bottom: 3px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+/* 图例「配套设施」标题右侧：全选主复选框 */
+.legend-selall {
+    display: flex; align-items: center; gap: 3px;
+    font-weight: 400; letter-spacing: 0; font-size: 10px;
+    color: var(--text-sub); cursor: pointer; user-select: none;
+}
+.legend-selall input {
+    width: 12px; height: 12px; margin: 0;
+    accent-color: #3a7afe; cursor: pointer; flex: none;
+}
+.legend-selall:hover { color: var(--text); }
+/* 对比模式：「配套设施」列展示的是 A/B 地址图例，「全选」复选框不适用 → 隐藏 */
+.legend.is-compare .legend-selall { display: none; }
+.legend-col h5 small { font-weight: 400; color: var(--text-sub); font-size: 10px; margin-left: 4px; }
 .legend ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .legend li {
     display: flex; align-items: center; gap: 8px;
     font-size: 12px;
 }
-.legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.legend-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; cursor: pointer;
+    padding: 2px 4px; border-radius: 6px;
+    transition: background .15s ease; user-select: none;
+}
+.legend-label:hover { background: rgba(91,155,255,0.12); }
+.legend-check { width: 14px; height: 14px; margin: 0; accent-color: #3a7afe; cursor: pointer; flex: none; }
+.legend-text { white-space: nowrap; }
+.legend-count { color: #8a9ec0; margin-left: auto; padding-left: 10px; }
+.legend-item.is-off .legend-text,
+.legend-item.is-off .dot { opacity: 0.4; }
+
+/* ========= 分析图层图例项（服务盲区点位 / 推荐选址 / 步行阻抗场） =========
+   复用「配套设施」的 .legend-item / .legend-label / .legend-check 复选框样式；
+   仅单地址模式展示，落在「每类人员」列下方（对比模式不渲染）。 */
+.legend-sym-wrap { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.legend-sym-wrap .dot { margin: 0; }
+.legend-grad {
+    width: 24px; height: 10px; border-radius: 2px; flex: none;
+    /* 蓝 → 黄 → 红：对应步行阻抗场 hsl(210)→hsl(60)→hsl(0)，绕行越大越红 */
+    background: linear-gradient(90deg, hsl(210,85%,55%), hsl(60,85%,55%), hsl(0,85%,55%));
+}
+.layer-note { color: #8a9ec0; font-size: 10px; margin-left: 2px; white-space: nowrap; }
+
+/* ========= 人员步行区域图例项（renderSpeedLegend 生成，落在合并图例的「每类人员」列） ========= */
+.sl-item { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.sl-item.is-active .sl-name { color: #fff; font-weight: 600; }
+.sl-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.sl-name { white-space: nowrap; color: var(--text); }
+.sl-tag {
+    font-style: normal; font-size: 10px; color: #fff;
+    background: var(--primary); border-radius: 4px; padding: 0 4px; margin-left: 3px;
+}
+.sl-meta {
+    margin-left: auto; color: var(--text-sub); font-size: 11px;
+    font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 8px;
+}
 
 /* Loader */
 .loader {
@@ -538,6 +812,7 @@ body::before {
 /* ============== SIDE PANEL（自适应紧凑） ============== */
 .side {
     grid-column: 2; grid-row: 1;
+    position: relative;     /* 给内部 absolute 元素（如全屏按钮）提供定位参考 */
     overflow-y: auto;
     overflow-x: hidden;
     display: flex; flex-direction: column; gap: 12px;
@@ -605,6 +880,36 @@ body::before {
 .meta-row { display: flex; justify-content: space-between; gap: 8px; }
 .meta-row span { color: var(--text-sub); }
 .meta-row b { color: var(--text); font-weight: 500; text-align: right; }
+
+/* 全龄友好评分：各人群彩色进度条（与地图图例配色一致） */
+.per-type-list { padding: 8px 14px 10px; display: flex; flex-direction: column; gap: 7px; }
+.pt-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.pt-row.is-active { background: rgba(91,155,255,0.10); border-radius: 7px; padding: 2px 4px; margin: 0 -4px; }
+.pt-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.pt-label { flex: none; min-width: 56px; color: var(--text); white-space: nowrap; }
+.pt-main {
+    margin-left: 2px; font-size: 10px; line-height: 1; padding: 1px 4px; border-radius: 4px;
+    background: linear-gradient(180deg, var(--primary), var(--primary-glow)); color: #fff;
+}
+.pt-track {
+    flex: 1; height: 8px; border-radius: 5px;
+    background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.pt-fill { display: block; height: 100%; border-radius: 5px; transition: width .5s ease; }
+.pt-score { flex: none; min-width: 26px; text-align: right; color: var(--text-sub); font-variant-numeric: tabular-nums; font-weight: 600; }
+.pt-row.is-active .pt-score { color: var(--primary-glow); }
+
+/* 全龄友好评分 · 对比模式 A/B 双列（与 A 蓝 B 橙配色一致，高者高亮） */
+.pt-cmp-head { display: flex; gap: 8px; font-size: 11px; color: var(--text-sub); margin-bottom: 2px; }
+.pt-cmp-head .pc-legend.a { color: #5b9bff; font-weight: 600; flex: 1; text-align: right; }
+.pt-cmp-head .pc-legend.b { color: #ff9f43; font-weight: 600; flex: 1; text-align: left; }
+.pt-row.pt-cmp { justify-content: flex-start; }
+.pt-row.pt-cmp .pt-label { flex: 1; min-width: 0; }
+.pt-row.pt-cmp .pt-cnt { flex: none; min-width: 52px; text-align: center; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.pt-row.pt-cmp .pt-cnt b { font-size: 13px; color: var(--text); }
+.pt-row.pt-cmp .pt-cnt.a b { color: #5b9bff; }
+.pt-row.pt-cmp .pt-cnt.b b { color: #ff9f43; }
+.pt-row.pt-cmp { border-radius: 0; background: transparent; }
 
 /* POI Count —— 紧凑 */
 .poi-count { padding: 8px 14px 10px; }
@@ -865,6 +1170,7 @@ body::before {
 /* ============== REPORT ============== */
 .report-card {
     grid-column: 1 / span 2; grid-row: 2;
+    position: relative;     /* 给内部 absolute 元素（如全屏按钮）提供定位参考 */
     min-height: 220px;
     max-height: 36vh;
     display: flex; flex-direction: column;
@@ -874,7 +1180,7 @@ body::before {
 .report-card.has-compare {
     max-height: 36vh;
 }
-.report-actions { display: flex; align-items: center; gap: 10px; }
+.report-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .report-content {
     flex: 1 1 auto;
     min-height: 0;       /* 关键：flex 子项可滚动 */
@@ -916,6 +1222,29 @@ body::before {
 }
 .report-list { padding-left: 18px; margin: 0; }
 .report-list li { margin-bottom: 4px; }
+
+/* 报告：各人群可达性与评分差异 表格 */
+.per-type-table {
+    width: 100%; border-collapse: collapse; margin: 10px 0 4px;
+    font-size: 12px;
+}
+.per-type-table th, .per-type-table td {
+    padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--card-border);
+}
+.per-type-table th {
+    background: rgba(91,155,255,0.12); color: var(--primary-glow);
+    font-weight: 600; font-size: 12px;
+}
+.per-type-table td .dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle;
+}
+.per-type-table .pt-main {
+    margin-left: 4px; font-size: 10px; line-height: 1; padding: 1px 4px; border-radius: 4px;
+    background: linear-gradient(180deg, var(--primary), var(--primary-glow)); color: #fff;
+}
+.per-type-note {
+    margin: 8px 0 0; color: var(--text-sub); font-size: 12px; line-height: 1.6;
+}
 
 .muted { color: var(--text-sub); }
 
@@ -1040,7 +1369,8 @@ body::before {
 @media (max-width: 1440px) {
     .layout { grid-template-columns: 1fr 340px; }
     .addr-bar input#addrInput,
-    .addr-bar input#addrInputB { min-width: 220px; }
+    .addr-bar input#addrInputB { min-width: 150px; }
+    .bw-set-sum { max-width: 92px; }
     .chart { height: 220px; }
     #barChart { height: 180px; }
     .score-card .score-body { grid-template-columns: 96px 1fr; }
@@ -1048,17 +1378,17 @@ body::before {
     .score-num { font-size: 24px; }
     .info-widgets { flex-direction: column; }
 }
-/* ≤1280px：横向压缩布局 */
+/* ≤1280px：横向压缩布局（顶栏保持单行：不再 wrap，改为压缩各段宽度） */
 @media (max-width: 1280px) {
-    .topbar { grid-template-columns: 280px 1fr; padding: 10px 14px; }
-    .topbar .hud { display: none; }      /* 窄屏隐藏 HUD，避免顶栏拥挤溢出 */
+    .topbar { padding: 8px 10px; }
+    .bw-set-sum { display: none; }          /* 窄屏隐藏按钮内摘要，保住单行 */
     .layout { grid-template-columns: 1fr 320px; padding: 10px; }
-    .addr-bar { padding: 0 8px; }
+    .addr-bar { padding: 0 6px; }
     .addr-bar input#addrInput,
-    .addr-bar input#addrInputB { min-width: 180px; }
+    .addr-bar input#addrInputB { min-width: 110px; }
     .addr-hint-popover { width: 380px; }
-    .brand-text h1 { font-size: 16px; }
-    .brand-text small { font-size: 11px; }
+    .brand-text h1 { font-size: 18px; }
+    .brand-text small { font-size: 12px; }
     .chart { height: 210px; }
     #barChart { height: 165px; }
     .poi-count { padding: 6px 12px 8px; }
@@ -1071,7 +1401,8 @@ body::before {
 }
 /* ≤980px：单列堆叠（地图在上、看板在中、报告在下） */
 @media (max-width: 980px) {
-    .topbar { grid-template-columns: 1fr; }
+    .topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .topbar-right { align-items: stretch; }
     .addr-bar { flex-wrap: wrap; }
     .layout {
         grid-template-columns: 1fr;
@@ -1087,7 +1418,7 @@ body::before {
 /* ≤640px（手机端）：进一步压缩 */
 @media (max-width: 640px) {
     .topbar { padding: 8px 10px; }
-    .brand-text h1 { font-size: 14px; }
+    .brand-text h1 { font-size: 16px; }
     .addr-bar input { height: 34px; font-size: 12px; }
     .btn { height: 34px; padding: 0 12px; font-size: 12px; }
     .info-widgets { top: auto; bottom: 8px; right: 8px; left: 8px; }
@@ -1096,6 +1427,196 @@ body::before {
     .addr-hint-popover { left: 10px; right: 10px; top: 96px; width: auto; max-width: none; }
     .diag-toggle { font-size: 11px; padding: 0 10px 0 8px; height: 32px; }
     .diag-toggle .diag-label { display: none; }   /* 手机极窄时只显示齿轮图标，避免溢出 */
+}
+
+/* ============== 区域全屏（页内最大化：地图 / 报告 / 右侧数据面板） ============== */
+.fs-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0;
+    border: 1px solid var(--card-border); border-radius: 8px;
+    background: rgba(20, 32, 64, 0.85); color: var(--text);
+    cursor: pointer; user-select: none; backdrop-filter: blur(8px);
+    box-shadow: var(--shadow); transition: background .15s, transform .1s, border-color .15s;
+    font-size: 15px; line-height: 1; flex: none;
+}
+.fs-btn:hover { background: rgba(91,155,255,0.22); border-color: var(--primary-glow); }
+.fs-btn:active { transform: scale(0.94); }
+.fs-btn.is-active { background: rgba(58,122,254,0.30); border-color: var(--primary-glow); color: #fff; }
+
+/* 文字版全屏按钮（用于评分卡 / 报告头部）：比纯图标按钮更容易被发现 */
+.fs-text-btn {
+    width: auto; height: 26px; padding: 0 8px;
+    font-size: 12px; gap: 4px;
+}
+
+/* 地图区浮动全屏按钮：右下角，避开左上（底图切换）/ 右上（时间天气）/ 左下（图例） */
+.fs-float {
+    position: absolute; bottom: 12px; right: 12px; z-index: 20;
+}
+.fs-map-btn {
+    width: auto; height: 32px; padding: 0 10px;
+    font-size: 13px; gap: 5px;
+    border-radius: 10px;
+}
+
+/* 评分卡头部右侧的操作组（标签 + 全屏按钮） */
+.card-header .card-actions { display: flex; align-items: center; gap: 8px; }
+
+/* 最大化：铺满整个视口，覆盖其它区域（同一时刻仅一个） */
+.map-panel.is-maximized,
+.side.is-maximized,
+.report-card.is-maximized {
+    position: fixed; inset: 0; z-index: 9999;
+    width: 100vw; height: 100vh;
+    border-radius: 0; margin: 0;
+}
+.map-panel.is-maximized { overflow: hidden; }
+.side.is-maximized { border-radius: 0; }
+.report-card.is-maximized { max-height: none; border-radius: 0; }
+
+/* 最大化后隐藏各区域原有的「⛶ 全屏」按钮，只保留右上角统一的退出条 */
+.is-maximized .fs-btn,
+.is-maximized .fs-text-btn,
+.is-maximized .fs-map-btn { display: none !important; }
+
+/* 全屏退出操作条：最大化后固定在视口右上角，贴顶更醒目 */
+.fs-exit-bar {
+    position: fixed; top: 6px; right: 12px; z-index: 10001;
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 12px;
+    border: 1px solid rgba(255,107,107,0.6); border-radius: 10px;
+    background: rgba(255,77,77,0.18); color: #ffdede;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; user-select: none; backdrop-filter: blur(10px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    transition: background .15s, transform .1s;
+}
+.fs-exit-bar:hover { background: rgba(255,77,77,0.32); transform: translateY(-1px); }
+.fs-exit-bar:active { transform: translateY(0); }
+.fs-exit-ico { font-size: 14px; }
+.fs-exit-txt { white-space: nowrap; }
+
+/* ============== 无障碍可达性达标率（最近设施实测 × GB 50180-2018） ============== */
+.access-body {
+    padding: 8px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ac-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.ac-head {
+    color: var(--text-sub);
+    font-size: 11px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+}
+.ac-name { color: var(--text); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ac-name small { color: var(--text-sub); font-size: 10px; }
+.ac-col-label { text-align: center; color: var(--text-sub); }
+.ac-walk, .ac-wheel { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ac-pct { font-size: 11px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.ac-pct b { font-size: 13px; }
+.ac-track { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.ac-fill { display: block; height: 100%; border-radius: 4px; transition: width .5s ease; }
+.ac-summary { border-top: 1px solid var(--card-border); margin-top: 4px; padding-top: 6px; font-weight: 600; }
+.ac-note { font-size: 11px; color: var(--text-sub); margin: 2px 0 0; }
+
+/* 对比模式 A/B 双列（A 蓝 / B 橙，与地图配色一致） */
+.ac-row.ac-cmp { grid-template-columns: 1.6fr repeat(4, 1fr); }
+.ac-cnt { text-align: center; color: var(--text-sub); font-variant-numeric: tabular-nums; font-size: 11px; }
+.ac-cnt b { font-size: 13px; display: block; }
+.ac-cnt.a b { color: #5b9bff; }
+.ac-cnt.b b { color: #ff9f43; }
+.ac-summary.ac-cmp { grid-template-columns: 1.6fr repeat(4, 1fr); font-weight: 700; }
+.ac-summary.ac-cmp .ac-name { color: var(--text); }
+
+/* 对比报告中的无障碍达标率表：继承 .ac-*，但在浅色/报告滚动区内微调 */
+.access-compare-report .ac-row {
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--card-border);
+}
+.access-compare-report .ac-row:last-child { border-bottom: none; }
+.access-compare-report .ac-head {
+    font-weight: 600;
+    color: var(--primary-glow);
+    border-bottom: 1px solid var(--card-border);
+}
+.access-compare-report .ac-summary {
+    border-top: 1px solid var(--card-border);
+    margin-top: 4px;
+    padding-top: 6px;
+}
+
+@media (max-width: 1280px) {
+    .ac-row { grid-template-columns: 1.4fr 1fr 1fr; }
+    .ac-row.ac-cmp, .ac-summary.ac-cmp { grid-template-columns: 1.5fr repeat(4, 1fr); }
+}
+
+/* ============== 选址推荐（补点建议 · 针对盲区贪心选点） ============== */
+.recommend-body { padding: 8px 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+.rc-row { border-bottom: 1px dashed var(--card-border); padding-bottom: 8px; }
+.rc-row:last-child { border-bottom: none; padding-bottom: 0; }
+.rc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.rc-ico {
+    width: 22px; height: 22px; border-radius: 6px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 13px;
+}
+.rc-name { font-size: 13px; color: var(--text); font-weight: 600; }
+.rc-total { margin-left: auto; font-size: 12px; color: var(--text-sub); }
+.rc-total b { font-size: 14px; }
+.rc-site {
+    display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-sub);
+    padding: 2px 0 2px 30px; line-height: 1.6;
+}
+.rc-rank { color: var(--text-sub); width: 14px; text-align: right; }
+.rc-coord { font-variant-numeric: tabular-nums; color: var(--text); }
+.rc-cov b { font-size: 12px; }
+.rc-main { color: var(--success); font-size: 10px; border: 1px solid var(--success); border-radius: 6px; padding: 0 4px; }
+
+/* 对比模式 A/B 双列（5 列网格：类别 | A消除率 | B消除率 | A推荐落点 | B推荐落点） */
+.rc-row.rc-cmp {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr 0.9fr 2.2fr 2.2fr;
+    align-items: start; gap: 8px; font-size: 12px;
+    border-bottom: 1px dashed var(--card-border); padding: 6px 0;
+    /* 统一左对齐：表头与内容保持一致，避免标题居中、内容靠左的错排 */
+    text-align: left;
+}
+.rc-row.rc-cmp:last-of-type { border-bottom: none; }
+.rc-head.rc-cmp { font-weight: 600; color: var(--primary-glow); border-bottom: 1px solid var(--card-border); align-items: center; }
+.rc-cnt {
+    text-align: left;           /* 与表头/内容统一左对齐 */
+    color: var(--text-sub);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+}
+.rc-cnt b { font-size: 13px; display: block; }
+.rc-cnt.a b { color: #5b9bff; }
+.rc-cnt.b b { color: #ff9f43; }
+.rc-cnt.rc-sites {
+    display: flex; flex-direction: column; gap: 3px;
+    line-height: 1.35; white-space: normal;
+}
+.rc-site-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 11px; }
+.rc-site-tag { flex: none; font-weight: 700; font-size: 10px; }
+.rc-coord-mini { color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.2px; }
+.rc-cov-mini { color: var(--text-sub); font-size: 10px; }
+.rc-zero { color: var(--text-sub); }
+.rc-cmp-note { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--card-border); line-height: 1.5; }
+.rc-cmp-note-line { font-size: 11px; color: var(--text-sub); margin-bottom: 3px; }
+.rc-cmp-note-line:last-child { margin-bottom: 0; }
+.rc-cmp-note-line b { color: var(--text); }
+.rc-note-hl { color: #36d399; font-weight: 600; }
+
+@media (max-width: 1280px) {
+    .rc-row.rc-cmp { grid-template-columns: 1.1fr 0.8fr 0.8fr 2fr 2fr; }
 }
 
 /* ===== 对比模式：右侧看板 A/B 并排视图 ===== */
@@ -1194,3 +1715,68 @@ body::before {
     .gc-grid { gap: 8px; }
     .gc-line { line-height: 1.7; }
 }
+
+/* ==========================================================
+   生活圈应力测试（报告 · 「应力测试」tab）
+   ① 可达性塌缩曲线 ② 步行阻抗场 ③ 隐性盲区 ④ 缺设施/缺路归因
+   ========================================================== */
+.stress-kpi-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0 14px;
+}
+
+.stress-kpi {
+    flex: 1 1 132px;
+    min-width: 132px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(58, 122, 254, 0.08);
+    border: 1px solid rgba(120, 180, 255, 0.18);
+}
+
+.stress-kpi .sk-label {
+    font-size: 12px;
+    color: #8a9ec0;
+    margin-bottom: 4px;
+}
+
+.stress-kpi .sk-value {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.25;
+    word-break: break-all;
+}
+
+.stress-kpi .sk-unit {
+    font-size: 12px;
+    margin-left: 3px;
+    opacity: 0.75;
+    font-weight: 400;
+}
+
+.stress-chart {
+    width: 100%;
+    height: 280px;
+    margin: 6px 0 10px;
+}
+
+@media (max-width: 980px) {
+    .stress-chart { height: 240px; }
+    .stress-kpi { flex: 1 1 112px; min-width: 112px; }
+    .stress-kpi .sk-value { font-size: 17px; }
+}
+/* ============== 步行阻抗场（左侧面板摘要） ============== */
+.im-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0;
+    font-size: 12px;
+    color: #8a9ec0;
+    border-bottom: 1px dashed rgba(120, 180, 255, 0.12);
+}
+.im-row:last-of-type { border-bottom: none; }
+.im-row b { color: #e6f0ff; font-size: 13px; }
+.im-note { font-size: 12px; line-height: 1.65; margin-top: 8px; }

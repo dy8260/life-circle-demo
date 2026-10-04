@@ -50,14 +50,22 @@
     // 检索城市导致 region 解析错位（见 poi.js 的 _ensureMapAt），并非限频，故恢复 280。
     global.POI_SEARCH_GAP_MS = 280;
 
-    // 某类已召回足够多点位（默认 10）时，跳过剩余同义词，省配额且不损覆盖
-    global.POI_KEYWORD_STOP_AT = 10;
+    // 某类已召回足够多点位（默认 60）时，跳过剩余同义词，省配额且不损覆盖。
+    // 此前为 10，稀疏类别（单关键字仅召回个位数）会被过早截断，导致「配套设施数量少」的观感；
+    // 上调到 60 让稀疏类别也能积累到更完整的覆盖（稠密类别由下方 POI_MAX_PAGES 分页补足）。
+    global.POI_KEYWORD_STOP_AT = 60;
 
     // 单个关键字「真失败」（百度返回错误码或 onErr 回调）时的退避重试次数与间隔。
     // ⚠ 仅用于真失败；「干净返回 0 条」不再重试（此前误当限频重试，既无效又拖慢）。
     // 「对比首点全 0」的真因是地图视口/region 错位，已由 poi.js 的 _ensureMapAt 修复。
     global.POI_SEARCH_RETRY = 3;
     global.POI_SEARCH_RETRY_GAP_MS = 2000;
+
+    // 百度 LocalSearch 单 keyword 单页最多返回 pageCapacity(50) 条且默认只取第一页，
+    // 稠密区域（如商圈便利店 / 公交站）远超 50 条会被静默截断，是「配套设施数量少」的主因。
+    // 开启分页：单关键字最多向后翻 POI_MAX_PAGES 页累积（2 页 → 单类最多约 100 条），显著提升召回。
+    // 设为 1 即关闭分页（仅取第一页，回到原来的低配额行为）；调大召回更全但 AK 配额 / QPS 消耗线性上升。
+    global.POI_MAX_PAGES = 2;
 
     // 页面加载是否自动跑一次「单地址」体检（默认 true：用户要求一进来就自动加载单地址）。
     // ⚠ 仅自动跑单地址；对比模式始终由「开始对比」按钮手动触发，不会在加载时自动跑。
@@ -94,6 +102,46 @@
         bus:      { min: 1, ideal: 3, weight: 0.15 }
     };
 
+    // ============================================================
+    // 无障碍可达性达标率（最近设施实测 × GB 50180-2018）
+    //
+    // 与「配套数量」统计的本质区别：数量只数"圈内有多少个"；本指标改为对居住采样点
+    // 逐个测算"沿真实步行路网走到最近一处该类设施要多久"，再拿该耗时与国家标准
+    // 《城市居住区规划设计标准》(GB 50180-2018) 的服务半径（折算为步行分钟）比对，
+    // 得到「步行达标率 / 轮椅达标率」。轮椅人群按低速重算，是其独有维度。
+    //
+    // ⚠ stdRadius（服务半径，米）取自 GB 50180-2018「十五分钟生活圈」配套要求，
+    //   折算步行分钟 = radius / 80（参考步行速度 80 m/min）。比对时用真实步行/轮椅速度，
+    //   故标准本身恒定、达标与否取决于行动能力。实际应用前请核对标准原文数值。
+    global.ACCESS_CATEGORIES = [
+        { key: 'market',   name: '菜市场', icon: '🥬', stdRadius: 500 },
+        { key: 'pharmacy', name: '药店',   icon: '💊', stdRadius: 500 },
+        { key: 'school',   name: '学校',   icon: '🎓', stdRadius: 500 },
+        { key: 'hospital', name: '医院',   icon: '🏥', stdRadius: 1000 },
+        { key: 'bus',      name: '公交站', icon: '🚌', stdRadius: 500 }
+    ];
+    global.ACCESS = {
+        enabled: true,     // 关闭则跳过最近设施实测（省配额 / 演示保底）
+        sampleMax: 10,     // 居住采样点上限（× 类别数 = 真实路网路径规划调用次数；调小省配额）
+        gridStep: 0,       // 0 = 按包围盒与 sampleMax 自动反推步长
+        concurrency: 3,    // 真实路网路径规划并发数（控制 QPS）
+        timeoutMs: 5000    // 单次标定超时（失败回落到直线 × 绕行系数 λ 兜底）
+    };
+
+    // ============================================================
+    // 选址推荐（补点建议）—— 针对盲区，推荐在哪里新建某类设施最能消除盲区
+    //
+    // 采用最大覆盖选址（Maximal Coverage）的贪心解：把盲区栅格点当需求点，
+    // 在每个盲区相关类别（菜市场 / 药店 / 学校）中贪心选取 topK 落点，
+    // 使"以国标盲区半径 R 内能覆盖的盲区点最多"（按严重度加权）。
+    // 纯直线距离计算，不调用 WalkingRoute → 零配额、秒级。
+    global.RECOMMEND = {
+        enabled: true,   // 关闭则跳过补点建议
+        topK: 3,         // 每个类别最多推荐的落点数
+        maxDemand: 300,  // 每个类别纳入计算的"未覆盖需求点"上限（栅格过多时按步长抽样，控计算量）
+        autoShow: true   // 体检完成后自动在地图上标注推荐落点（用户可用「标注选址」按钮隐藏）
+    };
+
     /**
      * 服务盲区识别参数
      *
@@ -104,11 +152,13 @@
      *     UI 统一简称为“学校”。
      */
     global.BLIND_GAP = {
-        radiusMeters: 1000,      // 盲区判定半径（米），配套标准原文「周边 1 公里」
+        radiusMeters: 1000,      // 盲区判定半径（米），随 WALK_MINUTES 缩放（15min→1000≈配套标准「周边 1 公里」）
+        radiusManual: false,     // 用户在「生活圈设置」里手动设过判定半径 → recalcDerived 不再随时长覆盖它
+        severeManual: false,     // 同上，重度阈值手动覆盖标志
         checkKeys: ['market', 'pharmacy', 'school'],  // 参与判定的三类：菜市场 / 药店 / 学校（标准原文为小学）
 
         gridStepMeters: 120,     // 栅格采样间距（米）。越小越精确，点位数按平方增长
-        severeMeters: 1500,      // 重度盲区分级阈值：三类最近距离均 > 此值
+        severeMeters: 1500,      // 重度盲区分级阈值：三类最近距离均 > 此值；随 WALK_MINUTES 缩放（15min→1500）
 
         // 路网绕行系数 λ = 真实步行距离 / 直线距离
         // 直线距离会低估实际步行路程（绕行、过街、封闭小区），需乘以 λ 校正
@@ -160,5 +210,97 @@
      * 省 / 市 / 区 三级联动数据已迁移到 js/region-data.js
      * （全国 31 省级 / 342 地级市 / 3056 区·县，离线内嵌、自动生成，请勿在此内联）
      */
+
+    // ============================================================
+    // 运行期可调：「生活圈步行时长」与「各类人员步行速度」共同决定可达圈规模
+    //   reachable(类) = type.speed(m/min) × walkMinutes(min)
+    // 改任一项都要联动更新「等时圈远点距离」与「盲区判定阈值」，保证「X 分钟生活圈」自洽。
+    // 锚定 15 分钟 × 成年人(80m/min) 时与原始写死值完全一致（farDistance=1800 / radiusMeters=1000 / severeMeters=1500）。
+    // 用户在顶部选择后由 app.js 调 applyWalkMinutes / setActiveType / setTypeSpeed 生效；
+    // gap.js 的 _cfg() 每次运行实时读 global.BLIND_GAP，isochrone.js 实时读 ISO.*，故无需各自改代码。
+    global.WALK_MINUTES = global.ISO.walkMinutes;   // 初始 15
+
+    // 各类人员步行速度（m/min）+ 展示色：可在左侧面板逐类修改；主分析人群 = ACTIVE_TYPE
+    //   （地图真实等时圈 / POI / 盲区 / 评分均按「主分析人群」的速度计算；其余人群仅在勾选后画彩色可达圈）
+    global.WALK_TYPES = [
+        { key: 'adult',  label: '成年人', speed: 80,  color: '#5a9bff' },  // ≈4.8 km/h，住建标准步行速度
+        { key: 'youth',  label: '青年人', speed: 100, color: '#00d68f' },  // ≈6.0 km/h，快走
+        { key: 'elder',  label: '老年人', speed: 50,  color: '#ffb547' },  // ≈3.0 km/h
+        { key: 'child',  label: '儿童',   speed: 60,  color: '#ab47bc' },  // ≈3.6 km/h
+        { key: 'wheel',  label: '轮椅',   speed: 40,  color: '#ff5470' }   // ≈2.4 km/h，无障碍
+    ];
+    global.ACTIVE_TYPE = 'adult';   // 当前主分析人群
+
+    function activeSpeed() {
+        const t = (global.WALK_TYPES || []).find(x => x.key === global.ACTIVE_TYPE);
+        return t ? t.speed : (global.ISO.walkSpeed || 80);
+    }
+    global.getActiveSpeed = activeSpeed;   // 供 app.js 读取主人群速度（各人群评分近似用）
+
+    // 共用：用当前「时长 + 主分析人群速度」重算派生量（等时圈远点距离 / 盲区阈值）
+    function recalcDerived() {
+        const m = global.WALK_MINUTES, v = activeSpeed();
+        global.ISO.walkSpeed         = v;
+        global.ISO.farDistance       = Math.round(v * m * 1.5);                       // 15×80→1800
+        // 盲区半径/重度阈值：仅当用户未在「生活圈设置」里手动覆盖时才随时长缩放
+        if (!global.BLIND_GAP.radiusManual) {
+            global.BLIND_GAP.radiusMeters = Math.round(v * m * 5 / 6);                 // 15×80→1000
+        }
+        if (!global.BLIND_GAP.severeManual) {
+            global.BLIND_GAP.severeMeters = Math.round(global.BLIND_GAP.radiusMeters * 1.5); // 15×80→1500
+        }
+    }
+
+    // 应用「生活圈设置」弹窗里的盲区配置（半径 / 重度阈值 / 采样间距 / 判定设施），并置手动覆盖标志
+    // 一旦手动设过判定半径或重度阈值，recalcDerived 就不再用时长覆盖它，实现「自定义盲区口径」
+    global.setBlindGap = function (cfg) {
+        if (!cfg) return;
+        if (cfg.radius != null) {
+            global.BLIND_GAP.radiusMeters = Math.max(50, Math.min(5000, Math.round(Number(cfg.radius) || 1000)));
+            global.BLIND_GAP.radiusManual = true;
+        }
+        if (cfg.severe != null) {
+            global.BLIND_GAP.severeMeters = Math.max(50, Math.min(8000, Math.round(Number(cfg.severe) || 1500)));
+            global.BLIND_GAP.severeManual = true;
+        }
+        if (cfg.grid != null) {
+            global.BLIND_GAP.gridStepMeters = Math.max(20, Math.min(500, Math.round(Number(cfg.grid) || 120)));
+        }
+        if (Array.isArray(cfg.keys)) {
+            global.BLIND_GAP.checkKeys = cfg.keys;
+        }
+    };
+
+    // 恢复盲区默认：清除手动覆盖，重新随生活圈时长缩放（与配套标准「周边 1 公里」锚定）
+    global.resetBlindGap = function () {
+        global.BLIND_GAP.radiusManual = false;
+        global.BLIND_GAP.severeManual = false;
+        recalcDerived();   // 立即按当前时长把半径/重度重算回标准值
+    };
+
+    global.applyWalkMinutes = function (m) {
+        m = Math.max(1, Math.min(120, Math.round(Number(m) || 15)));
+        global.ISO.walkMinutes = m;
+        global.WALK_MINUTES = m;
+        recalcDerived();
+    };
+    // 切换主分析人群（影响地图真实等时圈 / 评分；由 app.js 决定是否重跑全链路）
+    global.setActiveType = function (key) {
+        if (!(global.WALK_TYPES || []).some(x => x.key === key)) return;
+        global.ACTIVE_TYPE = key;
+        recalcDerived();
+    };
+    // 修改某一类人员的步行速度（仅当该类为主分析人群时才影响等时圈/评分/盲区）
+    global.setTypeSpeed = function (key, v) {
+        const t = (global.WALK_TYPES || []).find(x => x.key === key);
+        if (!t) return;
+        v = Math.max(20, Math.min(160, Math.round(Number(v) || t.speed)));
+        t.speed = v;
+        if (key === global.ACTIVE_TYPE) recalcDerived();
+    };
+    // 向后兼容：旧调用等价于「修改主分析人群的速度」
+    global.applyWalkSpeed = function (v) { global.setTypeSpeed(global.ACTIVE_TYPE, v); };
+    // 初始化派生值（15min × 成年人 时与原始写死值一致）
+    recalcDerived();
 
 })(window);
