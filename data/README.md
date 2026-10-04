@@ -1,48 +1,72 @@
 # 示例数据（内置示例社区，便于无 AK 环境快速预览）
 
 本目录存放一份**真实体检导出快照** `sample-community.json`，
-由「带百度 AK 真实体检」产出，作为仓库内置示例数据与对比测试报告的数据源。
+由「带地图 AK 的在线体检」产出，作为仓库内置示例数据与对比测试报告的数据源。
 
 > 本应用**基于百度地图开放能力在线运行**（地理编码 / POI 检索 / 路径规划），需要有效浏览器端 AK。
-> 源码中 AK 为脱敏占位符 `__BMAP_AK__`，部署时由 CI 注入真实 Key。本目录数据**不用于运行时绕开百度**，
-> 而是供 `scripts/gen-report-from-snapshot.js` 生成 `docs/真实对比测试报告.md` 的样例输入。
+> 源码中 AK 为脱敏占位符 `__BMAP_AK__`，部署时由 CI 注入真实 Key。本目录数据**不用于运行时绕开地图服务**，
+> 而是作为 `docs/真实对比测试报告.md` 的样例输入，以及离线场景下的数据陈列与二次分析。
 
 ## 文件
 
-- `sample-community.json` —— 当前内置**真实体检数据（北京·望京，评分 97/100）**，
-  由「带百度 AK 真实体检」导出生成。
+- `sample-community.json` / `sample-community.js` —— 同一份快照的两种载体（JSON 供解析，JS 供 `file://` 直接引入）。
+- 当前快照内容：**北京市朝阳区望京 SOHO**，导出时间 `2026-10-04T04:13:40Z`，六类 POI 共 **81 处**，综合评分 **95 / 100**。
+
+快照关键结果一览：
+
+| 项目 | 数值 |
+|---|---|
+| 中心点 | 116.4876°E, 40.0026°N |
+| 等时圈顶点数 | 16（闭合多边形） |
+| 15 分钟可达面积 | 2.79 km² |
+| 综合评分 | 95（完整度 90 / 便利度 99 / 覆盖 92 / 多样性 100） |
+| 六类 POI | 医院 2 / 药店 12 / 菜市场 25 / 商超 19 / 学校 11 / 公交站 12 = **81 处** |
+| 缺失类别 | 0 类 |
+| 分析栅格 / 盲区点数 | 191 / **0** |
+| 路网绕行系数 λ | 1.53（6 锚点中位数） |
+| 无障碍达标率 | 步行 96% / 轮椅 48% |
 
 ## 数据结构
 
-快照与真实运行产物 100% 对齐，字段如下：
+快照与真实运行产物对齐，顶层字段如下（**注意：面积不再作为顶层 `area` 字段**，改由 `breakdown.areaKm2` 与各人群 `perType[].areaKm2` 提供）：
 
 ```jsonc
 {
-  "meta": { "name": "...", "city": "...", "address": "...", "note": "...", "generatedBy": "...", "generatedAt": "YYYY-MM-DD" },
-  "center":   { "lng": 121.5057, "lat": 31.2453, "address": "..." },          // 体检中心点
-  "samples":  [ { "lng": ..., "lat": ... }, ... ],                             // 等时圈多边形顶点（闭环）
-  "area":     4610000,                                                         // 等时圈可达面积（m²）
-  "resultByKey": {                                                            // 六类 POI
-    "hospital": { "items": [ { "name": "...", "point": { "lng": ..., "lat": ... } }, ... ] },
+  "meta":       { "address": "...", "exportedAt": "ISO8601" },
+  "center":     { "lng": 116.4876, "lat": 40.0026, "address": "..." },   // 体检中心点
+  "samples":    [ { "lng": ..., "lat": ... }, ... ],                      // 等时圈多边形顶点（16 点闭环）
+  "resultByKey": {                                                        // 六类 POI
+    "hospital": { "items": [ { "title": "...", "address": "...", "point": { "lng": ..., "lat": ... }, "uid": "..." } ] },
     "pharmacy": { ... }, "market": { ... }, "store": { ... }, "school": { ... }, "bus": { ... }
   },
-  "gapResult": { ... }                                                        // GapFinder.analyze 的完整返回值
+  "gapResult":  { ... },   // 盲区分析完整结果（含 tristate 三态、lambdaField 空间场与 loocv 精度自证）
+  "recommend":  { ... },   // 补建选址建议（按类别给出 Top-N 落点）
+  "accessibility": { ... },// 无障碍可达性（五类设施，步行 / 轮椅双口径）
+  "perType":   [ ... ],    // 五类人群各自的等时圈面积与评分
+  "score":     95,
+  "missedCategories": [],
+  "breakdown":  { "completeness": 90, "proximity": 99, "coverage": 92, "diversity": 100, "areaKm2": 2.79, "nearestSummary": [ ... ] }
 }
 ```
 
-`gapResult` 字段说明见 `js/gap.js` 末尾 `_buildResult` 注释。
+各字段口径说明见对应文档：
 
-## 当前数据说明
-
-`data/sample-community.json` 当前已内置**真实体检数据（北京·望京，评分 97/100）**，
-由「带百度 AK 真实体检」导出生成，开箱即用。
+| 字段 | 参考文档 |
+|---|---|
+| `gapResult` | `docs/服务盲区识别算法.md`（含 `tristate` / `lambdaField` / `loocv` 字段释义） |
+| `accessibility` | `docs/真实对比测试报告.md` 第五节 |
+| `recommend` | `docs/服务盲区识别算法.md` 第九节 |
+| `perType` | `docs/等时圈生成算法设计.md` 第 5 节 |
+| `score` / `breakdown` | `docs/真实对比测试报告.md` 第三节 |
 
 ## 如需更换为其他社区数据
 
-1. 配置 `config.local.js` 填入浏览器端 AK，或用已注入 AK 的线上 GitHub Pages；
+1. 配置 `config.local.js` 填入浏览器端 AK，或使用已注入 AK 的线上部署站点；
 2. 在 App 中输入目标社区地址，跑通一次完整体检；
-3. 将本次结果整理为与上方结构一致的 `sample-community.json` 覆盖本目录
-   （字段与真实运行产物对齐即可，可联系我协助导出）；
-4. 运行 `node scripts/gen-report-from-snapshot.js` 一键刷新 `docs/真实对比测试报告.md` 数字。
+3. 使用界面的「导出快照」把结果导出，覆盖本目录的 `sample-community.json`（同时按需更新 `sample-community.js`）；
+4. 按 `docs/真实对比测试报告.md` 的口径重新整理对应章节的数字。
 
-> 说明：示例数据用于快速预览与对比测试报告，应用本身始终在线调用百度地图真实路网。
+> **已知状态**：仓库内的 `scripts/gen-report-from-snapshot.js` 属于早期版本的报告生成脚本，它读取的是旧结构中的顶层 `area` 字段，与当前快照结构**已不匹配**（直接运行会得到面积为 0 的结果）。
+> 当前 `docs/真实对比测试报告.md` 中的数字是直接依据本快照的上述字段整理而成。若希望恢复「一键重算」，需要先同步该脚本的取数逻辑。
+
+> 说明：示例数据用于快速预览与测试报告，应用本身始终在线调用百度地图真实路网。
