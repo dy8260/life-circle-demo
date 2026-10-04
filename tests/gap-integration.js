@@ -61,7 +61,7 @@ function rbk(){
     let pass=0, fail=0; const ok=(c,n)=>{ c?(pass++,console.log('  ✅ '+n)):(fail++,console.log('  ❌ '+n)); };
     ok(gap.enabled && gap.gapCount > 0, `盲区已识别（${gap.gapCount}/${gap.gridCount}）`);
     ok(/服务盲区识别/.test(reportHtml), '报告 HTML 含「服务盲区识别」章节');
-    ok(/⑤ 改造建议/.test(reportHtml), '报告章节已重排为 ⑤ 改造建议');
+    ok(/⑦ 改造建议/.test(reportHtml), '报告章节已重排为 ⑦ 改造建议');
     ok(score >= 0 && score <= 100, `综合评分在 0~100 区间（=${score}）`);
     ok(breakdown.diversity <= 100 + 1e-9, `类别多样性未超 100（=${breakdown.diversity}，类别数=${sb.POI_CATEGORIES.length}）`);
     ok(gap.lambda > 1, `λ 已标定（=${gap.lambda.toFixed(3)}）`);
