@@ -1779,4 +1779,119 @@ body::before {
 }
 .im-row:last-of-type { border-bottom: none; }
 .im-row b { color: #e6f0ff; font-size: 13px; }
+
+/* 对比模式：右侧「步行阻抗场」卡 A / B 并排摘要 */
+.im-row-cmp { justify-content: flex-start; gap: 8px; align-items: baseline; }
+.im-tag { display: inline-block; min-width: 18px; text-align: center; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; color: #fff; flex: none; }
+.im-verdict { margin-top: 8px; font-size: 12px; color: #cdd9f0; line-height: 1.6; }
+.im-verdict b { color: #e6f0ff; }
+
+/* ==========================================================
+   生活圈助手（吉祥物「科技小精灵」）—— as- 前缀隔离，避免与主样式冲突
+   仅对接在线体检数据；地址拆分为本地规则解析
+   ========================================================== */
+:root{
+  /* 助手跟随首页 Deep-space / Glassmorphism 深色主题 */
+  --as-blue:var(--primary,#3a7afe); --as-blue-deep:#5b9bff;
+  --as-ink:var(--text,#e6f0ff); --as-ink-2:var(--text-sub,#8a9ec0); --as-line:var(--card-border,rgba(120,180,255,.18)); --as-bg-soft:rgba(20,32,64,.55);
+  --as-good:#00d68f; --as-warn:#ffb547; --as-bad:#ff5470;
+  --as-m-blue:#3385ff; --as-m-blue-d:#1f5fcc; --as-m-blue-l:#9ec5ff; --as-m-blue-xl:#eaf2ff;
+  --as-m-gold:#ffd54a; --as-m-ink:#1f3a66; --as-m-hand:#5b9bff;
+  --as-fab-size:74px; --as-float-range:8px; --as-follow-px:6px; --as-tilt-deg:12deg;
+  --as-halo:rgba(51,133,255,.45); --as-scan-ms:0.7s; --as-enter-ms:0.6s; --as-orbit-ms:7s; --as-talk-ms:0.28s;
+}
+.asfab{
+  position:fixed; right:28px; bottom:28px; width:var(--as-fab-size); height:var(--as-fab-size);
+  border-radius:50%; background:none; border:none; cursor:pointer; z-index:60; padding:0;
+  perspective:520px;
+  animation:asEnter var(--as-enter-ms) ease-out both, asFloaty 3.4s ease-in-out var(--as-enter-ms) infinite;
+}
+@keyframes asEnter{ from{opacity:0; transform:translateY(46px) scale(.4) rotate(-8deg);} to{opacity:1; transform:translateY(0) scale(1) rotate(-2.5deg);} }
+@keyframes asFloaty{ 0%,100%{transform:translateY(0) rotate(-2.5deg);} 25%{transform:translateY(calc(var(--as-float-range)*-.55)) rotate(1.5deg);} 50%{transform:translateY(calc(var(--as-float-range)*-1)) rotate(2.5deg);} 75%{transform:translateY(calc(var(--as-float-range)*-.55)) rotate(-1.5deg);} }
+.asfab-tilt{ display:block; width:100%; height:100%; border-radius:50%; transform-style:preserve-3d; transform:translate(var(--mx,0px),var(--my,0px)) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)); transition:transform .18s ease-out; }
+.asfab-inner{ position:relative; width:100%; height:100%; border-radius:50%; overflow:hidden; background:#fff; box-shadow:0 10px 28px rgba(41,50,225,.28); transition:transform .12s ease; }
+.asfab-inner .asmascot{ width:90%; height:90%; margin:5% auto; display:block; }
+.asfab:hover .asfab-inner{ transform:scale(1.06); }
+.asfab-inner::before{ content:""; position:absolute; inset:-3px; border-radius:50%; pointer-events:none; box-shadow:0 0 0 0 var(--as-halo); animation:asHalo 2.6s ease-in-out infinite; }
+/* 面板整体改为深色玻璃拟态，与首页地图/卡片风格一致 */
+@keyframes asHalo{ 0%,100%{box-shadow:0 0 0 0 var(--as-halo);} 50%{box-shadow:0 0 0 9px rgba(51,133,255,0);} }
+.asfab-inner::after{ content:""; position:absolute; top:0; left:-70%; width:70%; height:100%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.9),transparent); transform:skewX(-18deg); opacity:0; pointer-events:none; }
+.asfab-inner.asscanning::after{ animation:asScan var(--as-scan-ms) ease; }
+@keyframes asScan{ 0%{left:-70%;opacity:0;} 12%{opacity:1;} 100%{left:120%;opacity:0;} }
+.asfab-inner.asbounce{ animation:asBounce .42s ease; }
+@keyframes asBounce{ 0%{transform:scale(1);} 28%{transform:scale(.9);} 62%{transform:scale(1.1);} 100%{transform:scale(1);} }
+.asfab .astip{ position:absolute; top:-10px; right:-6px; background:var(--as-bad); color:#fff; font-size:12px; padding:4px 10px; border-radius:14px; white-space:nowrap; z-index:2; box-shadow:0 4px 10px rgba(245,72,59,.4); animation:asPop 2.4s ease-in-out infinite; }
+@keyframes asPop{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+.asmascot{ display:block; }
+.asmascot .aseye{ transform-origin:center; animation:asBlink 4s infinite; }
+.aswifi{ animation:asFlash 2s infinite; } .aswifi2{ animation:asFlash 2s .3s infinite; }
+@keyframes asFlash{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+@keyframes asBlink{ 0%,92%,100%{transform:scaleY(1);} 96%{transform:scaleY(.1);} }
+.asantHalo{ transform-box:view-box; transform-origin:60px 11px; animation:asAntHalo 1.8s ease-in-out infinite; }
+@keyframes asAntHalo{ 0%,100%{opacity:0;} 50%{opacity:.6;} }
+.asantenna{ transform-box:view-box; transform-origin:60px 11px; animation:asAntBulb 1.8s ease-in-out infinite; }
+@keyframes asAntBulb{ 0%,100%{opacity:1;} 50%{opacity:.55;} }
+.asorbit{ transform-box:view-box; transform-origin:60px 68px; animation:asOrbit var(--as-orbit-ms) linear infinite; }
+.asorbit.asb{ animation-duration:calc(var(--as-orbit-ms)*1.4); animation-direction:reverse; }
+@keyframes asOrbit{ from{transform:rotate(0);} to{transform:rotate(360deg);} }
+.ashand{ transform-box:view-box; }
+.ashand.asl{ animation:asHandBob 2.6s ease-in-out infinite; }
+.ashand.asr{ animation:asHandBob 2.6s ease-in-out .5s infinite; }
+@keyframes asHandBob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2.5px);} }
+.asfab-inner .asmascot{ transform-box:view-box; transform-origin:60px 64px; animation:asBodyBreath 4.6s ease-in-out infinite; }
+@keyframes asBodyBreath{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.035);} }
+.asmouth{ transform-box:view-box; transform-origin:60px 77px; }
+.asfab-inner.astalking .asmouth{ animation:asTalk var(--as-talk-ms) ease-in-out infinite; }
+@keyframes asTalk{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(2.4);} }
+.asring{ position:absolute; inset:0; border-radius:50%; border:2px solid var(--as-halo); opacity:0; pointer-events:none; }
+.asring.asgo{ animation:asRipple .6s ease-out; }
+@keyframes asRipple{ from{transform:scale(.55);opacity:.85;} to{transform:scale(1.9);opacity:0;} }
+.asfab:hover .asfab-inner::before{ animation:asHalo 1.3s ease-in-out infinite; }
+.aspanel{ position:fixed; top:0; right:0; height:100vh; width:380px; max-width:90vw; background:var(--card-bg,rgba(20,32,64,.85)); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:70; box-shadow:-12px 0 40px rgba(0,0,0,.45); border-left:1px solid var(--as-line); transform:translateX(105%); transition:transform .32s cubic-bezier(.22,.8,.3,1); display:flex; flex-direction:column; color:var(--as-ink); }
+.aspanel.open{ transform:translateX(0); }
+.aspanel-head{ display:flex; align-items:center; gap:12px; padding:18px 18px 14px; border-bottom:1px solid var(--as-line); background:linear-gradient(120deg,rgba(13,27,61,.9),rgba(20,32,64,.7)); }
+.asava{ width:46px; height:46px; flex:0 0 auto; border-radius:50%; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(41,50,225,.2); }
+.asava .asmascot{ width:100%; height:100%; margin:0; }
+.asttl{ font-size:16px; font-weight:700; color:var(--as-ink); } .assub{ font-size:12px; color:var(--as-ink-2); }
+.asclose{ margin-left:auto; border:none; background:transparent; font-size:22px; color:var(--as-ink-2); cursor:pointer; line-height:1; }
+.asclose:hover{ color:var(--as-ink); }
+.aspanel-body{ padding:16px 18px; overflow-y:auto; flex:1; }
+.asspeech{ position:relative; background:var(--as-bg-soft); border:1px solid var(--as-line); border-radius:14px; padding:14px 16px; line-height:1.8; font-size:14px; min-height:90px; color:var(--as-ink); }
+.ascaret{ display:inline-block; width:7px; height:15px; background:var(--as-blue); margin-left:2px; vertical-align:-2px; animation:asBlink 1s steps(1) infinite; }
+.asq-title{ font-size:13px; color:var(--as-ink-2); margin:20px 0 10px; font-weight:600; }
+.aschips{ display:flex; flex-wrap:wrap; gap:8px; }
+.aschip{ border:1px solid var(--as-blue); color:var(--as-blue-deep); background:rgba(10,20,41,.55); border-radius:18px; padding:8px 13px; font-size:13px; cursor:pointer; transition:all .15s ease; }
+.aschip:hover{ background:var(--as-blue); color:#fff; }
+.aschip.active{ background:var(--as-blue); color:#fff; }
+/* 模式切换（单地址 / 对比）—— 与首页深色玻璃风一致 */
+.as-mode{ display:none; gap:8px; margin:2px 0 4px; }
+.asmode-btn{ flex:1; border:1px solid var(--as-line); background:rgba(10,20,41,.55); color:var(--as-ink-2); border-radius:10px; padding:8px 0; font-size:13px; cursor:pointer; transition:all .15s ease; }
+.asmode-btn:hover{ border-color:var(--as-blue); color:var(--as-ink); }
+.asmode-btn.active{ background:var(--as-blue); color:#fff; border-color:var(--as-blue); }
+.asmode-btn:disabled{ opacity:.4; cursor:not-allowed; }
+.asanswer{ margin-top:12px; border-left:3px solid var(--as-blue); background:rgba(58,122,254,.12); border-radius:0 10px 10px 0; padding:12px 14px; font-size:14px; line-height:1.8; display:none; color:var(--as-ink); }
+.asanswer.show{ display:block; animation:asFade .25s ease; }
+@keyframes asFade{ from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;} }
+.asanswer b{ color:var(--as-blue-deep); }
+.astag{ display:inline-block; font-size:12px; padding:2px 8px; border-radius:8px; margin-right:6px; }
+.astag.good{ background:rgba(0,214,143,.16); color:var(--as-good); }
+.astag.warn{ background:rgba(255,181,71,.16); color:var(--as-warn); }
+.astag.bad{ background:rgba(255,84,112,.16); color:var(--as-bad); }
+.asscrim{ position:fixed; inset:0; background:rgba(5,10,25,.55); z-index:65; opacity:0; visibility:hidden; transition:opacity .3s ease; }
+.asscrim.show{ opacity:1; visibility:visible; }
+.asaddr{ margin:16px 0 4px; border:1px dashed var(--as-line); border-radius:12px; padding:12px 14px; background:var(--as-bg-soft); }
+.asaddr-row{ display:flex; gap:8px; }
+.asaddr-row + .asaddr-row{ margin-top:8px; }
+.asaddr-row.btn-row{ justify-content:flex-end; }
+.asaddr-in{ flex:1; min-width:0; width:100%; border:1px solid var(--as-line); border-radius:8px; padding:8px 10px; font-size:13px; outline:none; background:rgba(10,20,41,.55); color:var(--as-ink); }
+.asaddr-in::placeholder{ color:var(--as-ink-2); }
+.asaddr-in:focus{ border-color:var(--as-blue); }
+.asaddr-btn{ border:none; background:var(--as-blue); color:#fff; border-radius:8px; padding:0 16px; font-size:13px; cursor:pointer; white-space:nowrap; }
+.asaddr-btn:hover{ background:var(--as-blue-deep); }
+.asaddr-out{ margin-top:10px; font-size:13px; line-height:1.9; }
+.asaddr-kv{ display:flex; gap:8px; }
+.asaddr-k{ flex:0 0 78px; color:var(--as-ink-2); }
+.asaddr-v{ flex:1; color:var(--as-ink); }
+.asaddr-v i{ color:var(--as-ink-2); font-style:normal; }
+.asaddr-hint{ margin-top:8px; font-size:12px; color:var(--as-ink-2); line-height:1.6; }
 .im-note { font-size: 12px; line-height: 1.65; margin-top: 8px; }

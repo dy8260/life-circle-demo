@@ -199,7 +199,7 @@
             const chart = echarts.init(el, null, { renderer: 'canvas' });
             chart.setOption({
                 backgroundColor: 'transparent',
-                grid: { left: 44, right: 20, top: 34, bottom: 40 },
+                grid: { left: 44, right: 78, top: 34, bottom: 40 },
                 tooltip: {
                     trigger: 'axis',
                     backgroundColor: 'rgba(13,27,61,0.94)',
@@ -213,7 +213,23 @@
                     }
                 },
                 legend: {
-                    top: 2, left: 0, itemWidth: 12, itemHeight: 8, textStyle: { color: '#8a9ec0', fontSize: 11 }
+                    type: 'scroll',
+                    orient: 'vertical',
+                    right: 8, top: 40, bottom: 30,
+                    itemWidth: 10, itemHeight: 6,
+                    itemGap: 10,
+                    textStyle: { color: '#8a9ec0', fontSize: 10 },
+                    formatter: function (name) {
+                        const map = {
+                            '综合达标率': '综合',
+                            '菜市场': '菜场',
+                            '公交站': '公交'
+                        };
+                        return map[name] || name;
+                    },
+                    pageIconColor: '#5b9bff',
+                    pageIconInactiveColor: 'rgba(120,180,255,0.25)',
+                    pageTextStyle: { color: '#8a9ec0', fontSize: 10 }
                 },
                 xAxis: {
                     type: 'category',
@@ -252,7 +268,9 @@
                     + loo.mae.toFixed(3) + '</b>、均方根误差 ' + loo.rmse.toFixed(3)
                     + (loo.improveMae == null ? '' :
                         ('；相比「全图统一用单一全局常数 λ=' + loo.meanLambda.toFixed(2)
-                         + '」的传统外推，空间场把预测误差降低了 <b>' + Math.round(loo.improveMae * 100) + '%</b>')))
+                         + '」的传统外推，空间场' + (loo.improveMae >= 0
+                            ? '把预测误差降低了 <b>' + Math.round(loo.improveMae * 100) + '%</b>'
+                            : '使预测误差反而上升了 <b>' + Math.round(-loo.improveMae * 100) + '%</b>'))))
                 : '观测点不足 3 个，暂不做交叉验证。';
 
             const confTxt = (function () {
@@ -278,7 +296,7 @@
                 +   kpiCard('λ 均值', f.range.mean.toFixed(2), '', '#00d68f')
                 +   kpiCard(loo ? 'MAE' : 'MAE', loo ? loo.mae.toFixed(3) : '样本不足', '', loo && loo.mae < 0.15 ? '#00d68f' : '#ffb547')
                 +   kpiCard(loo ? '相对全局常数改进率' : '相对全局常数改进率',
-                        loo && loo.improveMae != null ? '+' + Math.round(loo.improveMae * 100) + '%' : '—', '',
+                        fmtImprove(loo ? loo.improveMae : null), '',
                         loo && loo.improveMae != null && loo.improveMae >= 0 ? '#00d68f' : '#ff5470')
                 + '</div>'
                 + '<p class="per-type-note">方法一说明：对场中任一点，用其余观测按距离平方反比加权插值出它的 λ。'
@@ -602,7 +620,7 @@
                     loo && loo.rmse != null ? ('<div class="im-row"><span>精度自证 RMSE</span><b>'
                         + loo.rmse.toFixed(3) + '</b></div>') : '',
                     loo && loo.improveMae != null ? ('<div class="im-row"><span>相对全局常数改进率</span><b>'
-                        + '+' + Math.round(loo.improveMae * 100) + '%</b></div>') : '',
+                        + fmtImprove(loo.improveMae) + '</b></div>') : '',
                     '<div class="im-row"><span>平均判定置信度</span><b>'
                         + Math.round(f.confMean * 100) + '%</b></div>'
                 ]).join('');
@@ -610,6 +628,49 @@
                 + '<p class="im-note muted">颜色越暖表示该处直线与实际步行差距越大；'
                 + '透明度越低表示离实测观测点越远、结论越依赖空间外推。'
                 + '完整的绕行举证见报告「应力测试」页。</p>';
+        },
+
+        /**
+         * 对比模式：右侧「步行阻抗场」卡同时呈现 A / B 两地的 λ 空间变异场摘要。
+         * 对比模式地图不叠加阻抗场图层（避免与两套等时圈 + POI 糊在一起），
+         * 但每个地址的 λ 场在 _renderCompareGap 中已随盲区分析一并算出，
+         * 因此这里的卡片改为并排展示两地 λ 区间 / 均值 / 精度，并给出「谁的路网更绕」结论。
+         */
+        renderSummaryCompare: function (containerId, gapA, gapB) {
+            const box = document.getElementById(containerId);
+            if (!box) return;
+            const fA = gapA && gapA.lambdaField;
+            const fB = gapB && gapB.lambdaField;
+            if (!fA && !fB) {
+                box.innerHTML = '<p class="gap-empty muted">对比模式下，两地步行阻抗场将在完成盲区分析后并排呈现。'
+                    + '若长时间为空，说明本次体检未取得足够的真实路网观测（可切回单地址模式查看独立阻抗场）。</p>';
+                return;
+            }
+            const row = function (tag, color, f) {
+                if (!f || !f.range) return '';
+                const loo = f.loocv;
+                return ''
+                    + '<div class="im-row im-row-cmp"><span class="im-tag" style="background:' + color + '">' + tag + '</span>'
+                    +   '<span>路网观测 <b>' + f.observationCount + '</b> 条</span></div>'
+                    + '<div class="im-row im-row-cmp"><span></span>'
+                    +   '<span>λ 实测 <b>' + f.range.min.toFixed(2) + ' ~ ' + f.range.max.toFixed(2)
+                    +     '</b>（均值 <b>' + f.range.mean.toFixed(2) + '</b>）</span></div>'
+                    + (loo ? ('<div class="im-row im-row-cmp"><span></span><span>精度自证 MAE <b>' + loo.mae.toFixed(3)
+                        + (loo.improveMae != null ? ('，相对全局常数改进 ' + fmtImprove(loo.improveMae)) : '')
+                        + '</b></span></div>') : '');
+            };
+            let verdict = '';
+            if (fA && fA.range && fB && fB.range) {
+                const a = fA.range.mean, b = fB.range.mean;
+                const worse = a > b ? 'A' : (b > a ? 'B' : '两地相当');
+                verdict = '<div class="im-verdict">路网更绕（步行阻抗更高）：<b>' + worse + '</b>'
+                    + (worse === '两地相当' ? '（λ 均值接近）'
+                        : ('（λ 均值 ' + Math.max(a, b).toFixed(2) + ' vs ' + Math.min(a, b).toFixed(2) + '）'))
+                    + '</div>';
+            }
+            box.innerHTML = row('A', '#5b9bff', fA) + row('B', '#ff9f43', fB) + verdict
+                + '<p class="im-note muted">颜色越暖表示该处直线与实际步行差距越大；'
+                + '完整的绕行举证见报告「应力测试」页。切回单地址模式可在地图上叠加独立阻抗场图层。</p>';
         },
 
         /** 导出纯文本（供报告复制 / 打印时并入） */
@@ -936,6 +997,15 @@
         return (s == null ? '' : String(s))
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // 改进率格式化：符号自适应，避免负值被拼成 "+-50%" 这种误导写法
+    function fmtImprove(v) {
+        if (v == null || !isFinite(v)) return '—';
+        const pct = Math.round(v * 100);
+        if (pct > 0) return '+' + pct + '%';
+        if (pct < 0) return '-' + Math.abs(pct) + '%';
+        return '0%';
     }
 
     global.Stress = Stress;

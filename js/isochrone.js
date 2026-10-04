@@ -66,7 +66,7 @@
                     Util.destination({ lng: start.lng, lat: start.lat }, targetDist, bearing);
                 const finish = (pt) => { if (!done) { done = true; resolve(pt || fallbackPt()); } };
 
-                const timer = setTimeout(() => finish(fallbackPt()), 6000);
+                const timer = setTimeout(() => finish(fallbackPt()), 15000);
 
                 const onDone = function (results) {
                     clearTimeout(timer);
@@ -120,7 +120,7 @@
                 const fallback = () => radial;
                 const finish = (pts) => { if (!done) { done = true; resolve(pts && pts.length > 1 ? pts : fallback()); } };
 
-                const timer = setTimeout(() => finish(fallback()), 6000);
+                const timer = setTimeout(() => finish(fallback()), 15000);
 
                 const onDone = function (results) {
                     clearTimeout(timer);

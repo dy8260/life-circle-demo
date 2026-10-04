@@ -927,6 +927,10 @@
             // ⚠ 叠加 A/B 之前先撤掉单地址视图下的三个分析图层（盲区点位 / 选址推荐 / 步行阻抗场），
             //   否则会与两套等时圈 + POI 糊在一起，对比图读不出来。
             suspendAnalysisLayers();
+            // 立即清掉右侧「步行阻抗场」卡可能残留的单地址摘要，改为「对比中」占位（避免闪烁陈旧数据）
+            if (global.Stress && Stress.renderSummaryCompare) {
+                try { Stress.renderSummaryCompare('impedanceBody', null, null); } catch (e) {}
+            }
             _renderCompareMap(global.Compare.results[0], global.Compare.results[1]);
 
             // 右侧看板切换为 A/B 并排对比视图（评分卡/配套统计/雷达/柱状图）
@@ -1052,6 +1056,10 @@
         Dashboard.renderGapCompare(gapA, null);      // A 出来先填一半，避免长时间空白
         const gapB = await run(resB);
         Dashboard.renderGapCompare(gapA, gapB);
+        // 右侧「步行阻抗场」卡：对比模式并排展示 A / B 两地 λ 空间场（替代单地址陈旧摘要）
+        if (global.Stress && Stress.renderSummaryCompare) {
+            try { Stress.renderSummaryCompare('impedanceBody', gapA, gapB); } catch (e) { console.warn('对比阻抗场摘要渲染失败', e); }
+        }
     }
 
     /**
@@ -1171,17 +1179,20 @@
             Util.logGroup('geocode ok', { lng: center.lng, lat: center.lat });
         } catch (e) {
             Util.logGroup('geocode fail', e.message || e);
-            // 在线地图服务不可用（超时 / AK 未授权 / 配额耗尽）时，自动切换到内置离线示例数据，
-            // 保证评审/演示打开页面时永不空白；真正的「地址填错」才会走下方 toast。
+            // 在线地图服务「真不可用」时，自动切换到内置离线示例数据，保证评审/演示打开页面时永不空白：
+            //   - 地图 JS 库本身未加载（global.BMapGL 为 undefined，多为 CDN 被墙/拦截）
+            //   - AK 未授权 / 配额耗尽 / 权限拒绝（命中下方正则）
+            // ⚠ 注意：纯「超时」不再触发离线回退。超时多半是网络慢/百度抖动，
+            //   改为提示用户重试，避免评审只是遇上一次慢网络就被静默切成望京示例（误触发）。
             const msg = (e && e.message) || '';
-            if (!global.BMapGL || /超时|timeout|AK|INVALID|PERMISSION|权限|UNAUTHORIZED|quota|配额/i.test(msg)) {
+            if (!global.BMapGL || /AK|INVALID|PERMISSION|权限|UNAUTHORIZED|quota|配额/i.test(msg)) {
                 showLoader(false);
                 toast('在线地图服务暂不可用，已切换到离线示例数据（北京·望京）');
                 await loadOfflineDemo();
                 return;
             }
             showLoader(false);
-            toast('地址解析失败：' + (e.message || '请尝试更精确的地址'));
+            toast('地址解析失败（超时或地址有误）：' + (e.message || '请稍后重试，或尝试更精确的地址'));
             return;
         }
 
@@ -1201,7 +1212,8 @@
             fullPaths = null;
         }
         if (!fullPaths || fullPaths.length < 3) {
-            // 等时圈采样失败（通常是步行路由服务不可用）：自动切换到离线示例数据，避免空白
+            // 多数采样射线在 15s 内都未取得步行路由（路由服务真不可用，而非网络抖动）；
+            // 自动切换到离线示例数据，避免空白。慢网络（15s 内返回）不会走到这里。
             showLoader(false);
             toast('在线路网服务暂不可用，已切换到离线示例数据（北京·望京）');
             await loadOfflineDemo();
@@ -1587,7 +1599,7 @@
     function geocode(address) {
         return new Promise((resolve, reject) => {
             let done = false;
-            const t = setTimeout(() => { if (!done) { done = true; reject(new Error('超时')); } }, 6000);
+            const t = setTimeout(() => { if (!done) { done = true; reject(new Error('超时')); } }, 15000);
             try {
                 // 优先用「市」名作为 city 参数提高精度；直辖市用省份名（避免“市辖区”导致匹配失败）
                 const cityName = global.RegionPicker
