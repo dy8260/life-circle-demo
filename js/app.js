@@ -2062,4 +2062,19 @@
             setTimeout(poll, 100);
         })();
     })();
+
+    // ⚠ 早期 UI 绑定：生活圈设置弹窗不依赖地图（只读写 config 数据，不碰 map / BMapGL）。
+    //   原本只在 init() 内绑定，而 init() 由百度 SDK 就绪回调触发——SDK 慢/超时（首次冷启动、
+    //   慢网络）时 init 迟迟不跑，按钮从未绑定 → 点击"生活圈设置"没反应（刷新后 SDK 进缓存才恢复）。
+    //   这里在脚本执行（DOM 已就绪）时立即绑定，确保无论地图多慢，设置弹窗都可打开。
+    //   init() 第 38/39 行仍会调用这两个函数，但被 __csBound / __gapBound 幂等守卫拦截，不会重复绑定。
+    function earlyBindSettingsUI() {
+        bindCircleSettingsModal();
+        bindGapSettings();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', earlyBindSettingsUI);
+    } else {
+        earlyBindSettingsUI();
+    }
 })(window);
