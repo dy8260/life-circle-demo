@@ -73,7 +73,8 @@
         <button id="addrHint" type="button" class="hint-btn" title="点击查看地址输入说明" aria-label="地址输入提示">i</button>
         <button id="btnGo"     class="btn primary">开始体检</button>
         <button id="btnCompare" class="btn ghost" title="添加对比地址 · 并排体检">🆚 对比模式</button>
-        <button id="btnReset"  class="btn ghost">重置</button>
+        <button id="btnExport"  class="btn ghost" title="在线体检完成后，将含无障碍/各人群/λ空间场的完整结果导出为快照文件">导出快照</button>
+        <button id="btnDemo"    class="btn ghost" title="加载内置离线示例数据（北京·望京），无需联网即可查看完整体检效果">演示数据</button>
       </span>
     </div>
 
@@ -409,6 +410,9 @@
 <script src="js/compare.js"></script>
 <script src="js/time-weather.js"></script>
 <script src="js/fullscreen.js"></script>
+<!-- 内置离线示例数据（北京·望京），以内联 JS 形式暴露为 window.__OFFLINE_SAMPLE__，
+     既支持 file:// 本地直接打开，也支持 Pages 部署；无需 fetch，规避 CORS。 -->
+<script src="data/sample-community.js"></script>
 <script src="js/app.js"></script>
 
 <!-- 生活圈参数设置弹窗（默认隐藏，点左侧「⚙ 生活圈设置」打开） -->

@@ -153,11 +153,15 @@
     function bindEvents() {
         const btnGo = document.getElementById('btnGo');
         const input = document.getElementById('addrInput');
-        const btnReset = document.getElementById('btnReset');
+        const btnDemo = document.getElementById('btnDemo');
+        const btnExport = document.getElementById('btnExport');
 
         btnGo.addEventListener('click', runAnalysis);
         input.addEventListener('keypress', e => { if (e.key === 'Enter') runAnalysis(); });
-        btnReset.addEventListener('click', resetAll);
+        // 「演示数据」按钮：加载内置离线示例（北京·望京），无需联网即可展示完整体检效果
+        if (btnDemo) btnDemo.addEventListener('click', loadOfflineDemo);
+        // 「导出快照」按钮：将当前在线体检结果导出为 JSON，用于生成 / 更新离线示例数据
+        if (btnExport) btnExport.addEventListener('click', exportSnapshot);
 
         // 对比模式入口：切换显示地址 B 行（紧贴地址 A 下方，不挤压标题）
         const btnCompare = document.getElementById('btnCompare');
@@ -1167,6 +1171,15 @@
             Util.logGroup('geocode ok', { lng: center.lng, lat: center.lat });
         } catch (e) {
             Util.logGroup('geocode fail', e.message || e);
+            // 在线地图服务不可用（超时 / AK 未授权 / 配额耗尽）时，自动切换到内置离线示例数据，
+            // 保证评审/演示打开页面时永不空白；真正的「地址填错」才会走下方 toast。
+            const msg = (e && e.message) || '';
+            if (!global.BMapGL || /超时|timeout|AK|INVALID|PERMISSION|权限|UNAUTHORIZED|quota|配额/i.test(msg)) {
+                showLoader(false);
+                toast('在线地图服务暂不可用，已切换到离线示例数据（北京·望京）');
+                await loadOfflineDemo();
+                return;
+            }
             showLoader(false);
             toast('地址解析失败：' + (e.message || '请尝试更精确的地址'));
             return;
@@ -1188,8 +1201,10 @@
             fullPaths = null;
         }
         if (!fullPaths || fullPaths.length < 3) {
+            // 等时圈采样失败（通常是步行路由服务不可用）：自动切换到离线示例数据，避免空白
             showLoader(false);
-            toast('等时圈采样失败，可能该地点周边路网不完整');
+            toast('在线路网服务暂不可用，已切换到离线示例数据（北京·望京）');
+            await loadOfflineDemo();
             return;
         }
         // 缓存供「展示各人员步行区域」复用（签名 = 中心 + farDistance，与 refreshSpeedComparison 一致，避免重复 16 次路由）
@@ -1360,6 +1375,23 @@
                     document.body.appendChild(out);
                 }, 200);
             }
+            // 6.5 缓存完整在线体检结果，供「导出快照」生成离线示例数据
+            //     （含无障碍维度 / 各人群评分 / λ 空间场，落盘时再剥离 _ 前缀的内部字段）
+            try {
+                global.__liveSnapshot = {
+                    center: { lng: center.lng, lat: center.lat, address: addr },
+                    samples: currentSamples.map(p => ({ lng: p.lng, lat: p.lat })),
+                    resultByKey: resultByKeyActive,
+                    gapResult: gapResult,
+                    recommend: recommend,   // 选址推荐结果（含站点经纬度，轻量可直接落盘；离线优先用此，避免重算依赖的内部栅格）
+                    accessibility: access,
+                    perType: perType,
+                    score: score,
+                    missedCategories: missedCategories,
+                    breakdown: breakdown,
+                    meta: { address: addr, exportedAt: new Date().toISOString() }
+                };
+            } catch (se) { console.warn('快照缓存失败（不影响主流程）', se); }
         } catch (e) {
             console.error('[体检] 步骤 3-7 异常:', e);
             toast('体检基本完成，部分功能异常：' + (e.message || e));
@@ -1367,6 +1399,189 @@
 
         showLoader(false);
         Util.logGroup('体检完成', { center, score, poCount: Object.values(resultByKey).reduce((s, c) => s + c.items.length, 0) });
+    }
+
+    /**
+     * 加载内置离线示例数据（北京·望京），无需联网即可展示完整体检效果。
+     * 数据以内联 JS 形式暴露为 window.__OFFLINE_SAMPLE__（见 data/sample-community.js），
+     * 既支持 file:// 本地直接打开，也支持 Pages 部署；无需 fetch，规避 CORS。
+     * 既可由「演示数据」按钮手动触发，也作为在线服务不可用时的自动回退（保证页面永不空白）。
+     *
+     * 离线数据可由「导出快照」按钮从一次完整的在线体检生成（含无障碍维度 / 各人群评分 / λ 空间场 / 选址推荐），
+     * 导出后替换 data/sample-community.js 中的 window.__OFFLINE_SAMPLE__ 即可获得与在线一致的完整体验；
+     * 若快照中缺失上述深度字段，则对应模块自动降级显示，不影响主流程。
+     */
+    async function loadOfflineDemo() {
+        showLoader(true, '加载离线示例数据...');
+        const snap = window.__OFFLINE_SAMPLE__;
+        if (!snap || !snap.center || !snap.samples || !snap.resultByKey) {
+            showLoader(false);
+            toast('离线示例数据未找到：请先在线体检一次，再用「导出快照」生成 data/sample-community.js');
+            return;
+        }
+        try {
+            _exitCompareModeUI();
+            analysisSuspended = false;   // 单地址视图，清掉对比残留标记
+
+            const center = new BMapGL.Point(snap.center.lng, snap.center.lat);
+            currentCenter = center;
+            map.centerAndZoom(center, 16);
+
+            // 等时圈主圈 + 中心点（snapshot.samples 即主人群边界采样点，无需截断）
+            clearCompareOverlays(true);
+            const ir = Isochrone.render(map, snap.samples, center);
+            currentSamples = snap.samples.map(p => ({ lng: p.lng, lat: p.lat }));
+
+            Dashboard.exitCompare();
+            restoreRecMarkers();
+            Dashboard.setArea(ir.area);
+            Dashboard.setCenter(snap.center.address || '示例社区');
+            updateHudPath(snap.samples.length);
+
+            // POI 检索边界用主圈；主评分 / 盲区 / 报告按主圈裁剪
+            const activePts = currentSamples.map(p => ({ lng: p.lng, lat: p.lat }));
+            POI.render(map, snap.resultByKey, ir.polygon);
+            const resultByKeyActive = Util.filterByPolygon(snap.resultByKey, activePts);
+
+            const { score, missedCategories, breakdown } = Dashboard.calcScore(resultByKeyActive, ir.area, snap.center);
+            Dashboard.renderPerType(snap.perType || null);   // 离线有细分数据时直接渲染，否则清空占位
+            Dashboard.renderPoiCount(resultByKeyActive);
+            Dashboard.renderCharts(resultByKeyActive);
+            Dashboard.setScore(score, Util.scoreLevel(score).text);
+            Dashboard.renderGap(snap.gapResult);
+
+            // 无障碍可达性：离线有实测时渲染，否则清空占位
+            Dashboard.renderAccessibility(snap.accessibility || null);
+
+            // 选址推荐：优先用快照中已导出的推荐结果（站点经纬度，轻量可直接落盘，无需依赖内部栅格）；
+            // 旧版快照若缺该字段，退回由 gapResult 实时重算（依赖 _grid/_walk/_isGap 内部字段，缺失则不生成）
+            let recommend = snap.recommend || null;
+            if (!recommend) {
+                try {
+                    if (global.RECOMMEND && global.RECOMMEND.enabled !== false) {
+                        recommend = Recommend.compute(snap.gapResult, {});
+                    }
+                } catch (re) { console.warn('离线选址推荐计算失败', re); recommend = null; }
+            }
+            Dashboard.renderRecommend(recommend);
+            global.__lastRecommend = recommend;
+            global.__recActive = false;
+            const recBtn = document.getElementById('btnRecToggle');
+            const hasRecSites = !!(recommend && recommend.ok && recommend.perCategory.some(c => c.sites && c.sites.length));
+            if (hasRecSites) {
+                if (global.RECOMMEND && global.RECOMMEND.autoShow) {
+                    Recommend.renderMarkers(map, recommend);
+                    global.__recActive = true;
+                    if (recBtn) { recBtn.disabled = false; recBtn.classList.add('active'); recBtn.textContent = '隐藏标注'; }
+                } else if (recBtn) { recBtn.disabled = false; recBtn.textContent = '标注选址'; }
+            } else if (recBtn) {
+                recBtn.disabled = true; recBtn.classList.remove('active'); recBtn.textContent = '标注选址';
+            }
+
+            // 盲区点位默认上图
+            const gapBtn = document.getElementById('btnGapToggle');
+            const hasGap = !!(snap.gapResult && snap.gapResult.enabled && snap.gapResult.gapCount > 0);
+            if (hasGap) {
+                GapFinder.render(map, snap.gapResult);
+                if (gapBtn) { gapBtn.classList.add('active'); gapBtn.textContent = '隐藏点位'; gapBtn.disabled = false; }
+            } else if (gapBtn) {
+                if (global.GapFinder && GapFinder.visible) GapFinder.clear(map);
+                gapBtn.classList.remove('active');
+                gapBtn.textContent = '显示点位';
+                gapBtn.disabled = true;
+            }
+
+            // 报告（perType / accessibility 离线时若快照含则一并渲染）
+            Report.build(snap.center, resultByKeyActive, ir.area, score, missedCategories, breakdown, snap.gapResult, snap.perType || null, snap.accessibility || null, recommend);
+
+            // 应力测试：离线若 gapResult 含 λ 空间场则完整呈现，否则仅阻抗图层降级
+            try {
+                const stressData = global.Stress ? Stress.build({ access: snap.accessibility || null, gap: snap.gapResult }) : null;
+                if (global.Stress) Stress.renderTo('reportStress', stressData);
+                const stTab = document.getElementById('tabStress');
+                if (stTab) stTab.disabled = !(stressData && stressData.ok);
+                const addrTag = document.getElementById('reportAddr');
+                if (addrTag) addrTag.dataset.stress = (snap.center.address || '示例社区') + ' · 生活圈应力测试';
+            } catch (se) { console.warn('离线应力测试渲染失败', se); }
+
+            // 步行阻抗场摘要：依据快照是否含 λ 空间场决定图层按钮可用性
+            try {
+                if (global.Stress) {
+                    Stress.renderSummary('impedanceBody', snap.gapResult);
+                    const hasField = !!(snap.gapResult && snap.gapResult.lambdaField && snap.gapResult.lambdaField.range);
+                    const impBtn = document.getElementById('btnImpedanceToggle');
+                    if (Stress._imp.visible) Stress.hideImpedanceLayer(map);
+                    if (impBtn) {
+                        impBtn.disabled = !hasField;
+                        impBtn.classList.remove('active');
+                        impBtn.textContent = '显示阻抗场';
+                    }
+                }
+            } catch (ie) { console.warn('离线阻抗场面板渲染失败', ie); }
+
+            renderLayerLegend(snap.gapResult);
+
+            // 热力图数据准备
+            Heatmap.setData(POI.collectHeatmapData(resultByKeyActive, currentSamples));
+
+            // 速度对比缓存置空，避免「展示各人员步行区域」误触发
+            speedCmpPaths = null;
+            speedCmpSig = null;
+
+            showLoader(false);
+            const offlineAddr = (snap.meta && snap.meta.address) ? snap.meta.address : (snap.center.address || '北京·望京');
+            toast('已加载离线示例数据：' + offlineAddr);
+        } catch (e) {
+            console.error('[离线演示] 渲染异常:', e);
+            showLoader(false);
+            toast('离线示例渲染异常：' + (e.message || e));
+        }
+    }
+
+    /**
+     * 将当前在线体检结果导出为 JSON（下载 / 剪贴板回退），
+     * 用户可将其替换进 data/sample-community.js 的 window.__OFFLINE_SAMPLE__，
+     * 从而得到一份含无障碍维度 / 各人群评分 / λ 空间场的完整体检示例。
+     */
+    function exportSnapshot() {
+        const snap = global.__liveSnapshot;
+        if (!snap || !snap.center || !snap.samples) {
+            toast('暂无可导出的体检数据：请先在线完成一次体检');
+            return;
+        }
+        // 剥离 _ 前缀的内部字段（非序列化的大对象 / 潜在循环引用），只保留可安全落盘的轻量字段
+        const clean = function (obj) {
+            if (Array.isArray(obj)) return obj.map(clean);
+            if (obj && typeof obj === 'object') {
+                const out = {};
+                for (const k in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, k) && k.charAt(0) !== '_') out[k] = clean(obj[k]);
+                }
+                return out;
+            }
+            return obj;
+        };
+        const text = JSON.stringify(clean(snap), null, 2);
+        try {
+            const blob = new Blob([text], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sample-community.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            toast('已导出快照（含无障碍 / 各人群 / λ 空间场）：sample-community.json');
+        } catch (e) {
+            // file:// 下 Blob 下载可能被限制，回退为复制到剪贴板
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+                toast('已复制快照 JSON 到剪贴板（当前环境不支持文件下载）');
+            } catch (e2) {
+                toast('导出失败：' + (e.message || e));
+            }
+        }
     }
 
     function geocode(address) {

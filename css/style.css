@@ -303,11 +303,11 @@ body::before {
 .addr-bar select:invalid,
 .addr-bar select option:disabled { color: var(--text-sub, #8a9ec0); }
 
-/* 右侧操作按钮区：4 列固定网格，确保 A/B 两行严格对齐
-   列 1：hint/close 小按钮；列 2：主按钮；列 3：对比模式/空；列 4：重置/空 */
+/* 右侧操作按钮区：5 列固定网格，确保 A/B 两行严格对齐
+   列 1：hint/close 小按钮；列 2：主按钮；列 3：对比模式；列 4：演示数据；列 5：导出快照 */
 .addr-actions {
     display: grid;
-    grid-template-columns: 30px 78px 84px 56px;
+    grid-template-columns: 30px 78px 84px 84px 92px;
     column-gap: 6px;
     align-items: center;
     justify-items: stretch;
