@@ -326,6 +326,7 @@
 
         set('brandMinutes', m);
         set('metaTargetMinutes', m + ' 分钟');
+        set('reportTitle', m + ' 分钟生活圈 · 体检报告');
         set('metaSpeed', (active ? active.speed : 80) + ' m/min');
         set('bwRadius', radius.toLocaleString('zh-CN'));
 
