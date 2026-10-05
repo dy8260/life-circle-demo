@@ -163,6 +163,10 @@
         // 「导出快照」按钮：将当前在线体检结果导出为 JSON，用于生成 / 更新离线示例数据
         if (btnExport) btnExport.addEventListener('click', exportSnapshot);
 
+        // 地图右下角悬浮定位按钮：获取当前位置并回填省市区 + 居中地图（不自动体检）
+        const mapLocateBtn = document.getElementById('mapLocateBtn');
+        if (mapLocateBtn) mapLocateBtn.addEventListener('click', doLocate);
+
         // 对比模式入口：切换显示地址 B 行（紧贴地址 A 下方，不挤压标题）
         const btnCompare = document.getElementById('btnCompare');
         const addrBarB = document.getElementById('addrBarB');
@@ -1163,6 +1167,67 @@
         }
     }
 
+    /**
+     * 定位当前位置并回填地址栏 A 的省/市/区 + 详细地址，地图居中到当前位置。
+     * 不自动触发体检（与「演示数据」按钮行为一致，避免意外消耗配额）。
+     * 使用百度地图自带 Geolocation：返回 BD-09 坐标 + 地址组件，无需 WGS84→BD09 转换。
+     */
+    function doLocate() {
+        if (!global.BMapGL || !global.BMapGL.Geolocation) {
+            toast('地图定位服务未就绪，请稍后重试');
+            return;
+        }
+        showLoader(true, '正在获取您的位置...');
+        let geo;
+        try {
+            geo = new global.BMapGL.Geolocation();
+        } catch (e) {
+            showLoader(false);
+            toast('定位初始化失败：' + (e && e.message ? e.message : e));
+            return;
+        }
+        geo.getCurrentPosition(function (r) {
+            const STATUS_OK = (typeof BMAP_STATUS_SUCCESS !== 'undefined') ? BMAP_STATUS_SUCCESS : 0;
+            if (this.getStatus() !== STATUS_OK || !r || !r.point) {
+                showLoader(false);
+                toast('定位失败（错误码 ' + this.getStatus() + '）：请检查浏览器定位权限，或手动选择省市区');
+                return;
+            }
+            // 1. 回填省/市/区（直辖市由 RegionPicker.applyAddress 内部兜底落位）
+            const addr = r.address || {};
+            const addrA = { prov: addr.province, city: addr.city, area: addr.district };
+            let applied = false;
+            if (addr.province && global.RegionPicker && global.RegionPicker.applyAddress) {
+                applied = global.RegionPicker.applyAddress(
+                    document.getElementById('provSelect'),
+                    document.getElementById('citySelect'),
+                    document.getElementById('areaSelect'),
+                    addrA
+                );
+            }
+            // 2. 详细地址：路名 + 门牌号（可手动补充更精确的小区/楼栋）
+            const input = document.getElementById('addrInput');
+            const detail = [addr.street, addr.streetNumber].filter(Boolean).join('');
+            if (input && detail) input.value = detail;
+            // 3. 地图居中到当前位置
+            if (map && r.point) map.centerAndZoom(r.point, 16);
+            // 4. 刷新天气（直辖市已自动映射省份名）
+            if (global.TimeWeather && global.RegionPicker) {
+                const cityName = global.RegionPicker.cityOnly(
+                    document.getElementById('provSelect'),
+                    document.getElementById('citySelect')
+                );
+                if (cityName) global.TimeWeather.updateWeather(cityName);
+            }
+            showLoader(false);
+            if (applied) {
+                toast('已定位：' + (addr.province || '') + (addr.city || '') + (addr.district || '') + (detail ? ' · ' + detail : ''));
+            } else {
+                toast('定位成功，但所在区域不在内置数据中；已为您居中地图，请手动选择省市区');
+            }
+        });
+    }
+
     async function runAnalysis() {
         const addr = readAddrA();
         if (!addr.trim()) { toast('请选择省/市/区，并输入详细地址'); return; }
@@ -1440,6 +1505,29 @@
             const center = new BMapGL.Point(snap.center.lng, snap.center.lat);
             currentCenter = center;
             map.centerAndZoom(center, 16);
+
+            // 顶栏地址回填：示例数据带结构化省市区（北京市为直辖市，市为「市辖区」），
+            // 避免演示数据加载后顶栏仍停在用户上次所选地址（如山东省/泰安市）
+            const reg = (snap.meta && snap.meta.region) || null;
+            if (reg && global.RegionPicker && global.RegionPicker.applyAddress) {
+                global.RegionPicker.applyAddress(
+                    document.getElementById('provSelect'),
+                    document.getElementById('citySelect'),
+                    document.getElementById('areaSelect'),
+                    reg
+                );
+                const di = document.getElementById('addrInput');
+                if (di && reg.detail) di.value = reg.detail;
+            }
+
+            // 演示数据基于「15 分钟 × 成年人(80 m/min)」生成，加载时把时长参数对齐回默认，
+            // 否则用户若曾改过时长，标题/时长会与示例口径不一致
+            if (global.ISO) {
+                global.ISO.walkMinutes = 15;
+                global.WALK_MINUTES = 15;
+                global.ACTIVE_TYPE = 'adult';
+            }
+            if (typeof syncCircleParams === 'function') syncCircleParams();
 
             // 等时圈主圈 + 中心点（snapshot.samples 即主人群边界采样点，无需截断）
             clearCompareOverlays(true);

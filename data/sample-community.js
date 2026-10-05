@@ -1729,6 +1729,7 @@ window.__OFFLINE_SAMPLE__ = {
   },
   "meta": {
     "address": "北京市朝阳区望京 SOHO",
+    "region": { "prov": "北京市", "city": "市辖区", "area": "朝阳区", "detail": "望京 SOHO" },
     "generatedAt": "2026-10-04T04:21:26.167Z",
     "note": "内置离线示例（由在线导出快照替换，含无障碍/各人群/λ空间场/选址推荐）"
   }

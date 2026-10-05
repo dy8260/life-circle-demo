@@ -108,6 +108,9 @@
     <!-- 区域全屏：点击铺满视口，再点 / Esc 退出（避开左上底图切换、右上时间天气、左下角图例） -->
     <button class="fs-btn fs-float fs-map-btn" data-target=".map-panel" title="全屏查看地图" aria-label="全屏查看地图">⛶ 全屏</button>
 
+    <!-- 定位悬浮按钮：获取当前位置并回填省市区 + 居中地图（不自动体检） -->
+    <button class="locate-float-btn" id="mapLocateBtn" type="button" title="定位我的位置，自动填写省市区" aria-label="定位我的位置">📍 我的位置</button>
+
     <!-- 底图类型切换：普通（深色矢量）/ 卫星（默认） -->
     <div class="maptype-switch" id="mapTypeSwitch">
       <button type="button" class="mt-btn" data-type="normal">普通</button>

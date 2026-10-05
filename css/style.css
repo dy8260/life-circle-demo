@@ -1459,6 +1459,18 @@ body::before {
     border-radius: 10px;
 }
 
+/* 地图右下角悬浮定位按钮：叠在「全屏」按钮上方（bottom:52px），与地址栏「📍 定位」共用 doLocate */
+.locate-float-btn {
+    position: absolute; bottom: 52px; right: 12px; z-index: 20;
+    width: auto; height: 36px; padding: 0 12px;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 14px; border-radius: 10px;
+    background: var(--card-bg); color: var(--text);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow); cursor: pointer;
+}
+.locate-float-btn:hover { border-color: var(--primary-glow); color: var(--text); }
+
 /* 评分卡头部右侧的操作组（标签 + 全屏按钮） */
 .card-header .card-actions { display: flex; align-items: center; gap: 8px; }
 
