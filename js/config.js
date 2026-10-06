@@ -303,4 +303,7 @@
     // 初始化派生值（15min × 成年人 时与原始写死值一致）
     recalcDerived();
 
+    // 暴露：供 app.js 在生活圈设置「完成」提交草稿时统一重算派生量（远点距离 / 盲区阈值）
+    global.recalcDerived = recalcDerived;
+
 })(window);

@@ -366,9 +366,100 @@
         renderSpeedLegend();
     }
 
+    // ===== 生活圈设置「草稿缓冲」：弹窗内改动先写草稿，点「完成」才应用到页面，×/遮罩/ESC 丢弃 =====
+    let settingsDraft = null;   // 弹窗打开时为对象，关闭时为 null
+
+    function snapshotBlindGap() {
+        const g = global.BLIND_GAP || {};
+        return {
+            radiusMeters: g.radiusMeters, severeMeters: g.severeMeters,
+            gridStepMeters: g.gridStepMeters,
+            checkKeys: Array.isArray(g.checkKeys) ? g.checkKeys.slice() : undefined,
+            radiusManual: g.radiusManual, severeManual: g.severeManual
+        };
+    }
+    function openSettingsDraft() {
+        settingsDraft = {
+            walkMinutes: global.WALK_MINUTES,
+            activeType: global.ACTIVE_TYPE,
+            speeds: {},
+            blindGap: snapshotBlindGap()
+        };
+        (global.WALK_TYPES || []).forEach(t => { settingsDraft.speeds[t.key] = t.speed; });
+    }
+    function closeSettingsDraft() { settingsDraft = null; }   // 丢弃：global 从未改动
+
+    function effActiveType() { return settingsDraft ? settingsDraft.activeType : global.ACTIVE_TYPE; }
+
+    function draftSetWalkMinutes(v) {
+        settingsDraft.walkMinutes = Math.max(1, Math.min(120, Math.round(Number(v) || 15)));
+    }
+    function draftSetActiveType(key) {
+        if (!(global.WALK_TYPES || []).some(x => x.key === key)) return;
+        settingsDraft.activeType = key;
+    }
+    function draftSetTypeSpeed(key, v) {
+        const t = (global.WALK_TYPES || []).find(x => x.key === key);
+        if (!t) return;
+        settingsDraft.speeds[key] = Math.max(20, Math.min(160, Math.round(Number(v) || t.speed)));
+    }
+    function draftSetBlindGap(cfg) {
+        if (!cfg) return;
+        const g = settingsDraft.blindGap;
+        if (cfg.radius != null) { g.radiusMeters = Math.max(50, Math.min(5000, Math.round(Number(cfg.radius) || 1000))); g.radiusManual = true; }
+        if (cfg.severe != null) { g.severeMeters = Math.max(50, Math.min(8000, Math.round(Number(cfg.severe) || 1500))); g.severeManual = true; }
+        if (cfg.grid != null) { g.gridStepMeters = Math.max(20, Math.min(500, Math.round(Number(cfg.grid) || 120))); }
+        if (Array.isArray(cfg.keys)) g.checkKeys = cfg.keys.slice();
+    }
+
+    // 弹窗内只同步弹窗自身控件（时长下拉 / 主人群下拉 / 主人群速度 / 各类速度行 / 高亮），不碰页面标题/摘要/图例
+    function syncModalControls() {
+        const m = settingsDraft ? settingsDraft.walkMinutes : (global.WALK_MINUTES || 15);
+        const activeKey = settingsDraft ? settingsDraft.activeType : global.ACTIVE_TYPE;
+        const speedOf = (t) => settingsDraft ? settingsDraft.speeds[t.key] : t.speed;
+        const sel = document.getElementById('walkMinSelect');
+        if (sel) sel.value = String(m);
+        const typeSel = document.getElementById('activeTypeSelect');
+        if (typeSel) typeSel.value = activeKey;
+        const mainSpeed = document.getElementById('mainSpeed');
+        if (mainSpeed && document.activeElement !== mainSpeed) {
+            const a = (global.WALK_TYPES || []).find(t => t.key === activeKey);
+            mainSpeed.value = a ? speedOf(a) : 80;
+        }
+        const box = document.getElementById('walkTypes');
+        if (box) box.querySelectorAll('.bw-type').forEach(row => {
+            const key = row.getAttribute('data-key');
+            const t = (global.WALK_TYPES || []).find(x => x.key === key);
+            if (!t) return;
+            row.classList.toggle('is-active', key === activeKey);
+            const input = row.querySelector('.bw-speed');
+            if (input && document.activeElement !== input) input.value = speedOf(t);
+        });
+    }
+
+    // 点「完成」：把草稿一次性提交到 global，并统一刷新页面 / 重算
+    function commitSettingsDraft() {
+        if (!settingsDraft) return;
+        const d = settingsDraft;
+        global.ISO.walkMinutes = d.walkMinutes;
+        global.WALK_MINUTES = d.walkMinutes;
+        (global.WALK_TYPES || []).forEach(t => { if (d.speeds[t.key] != null) t.speed = d.speeds[t.key]; });
+        global.ACTIVE_TYPE = d.activeType;
+        const g = global.BLIND_GAP;
+        if (d.blindGap.radiusManual) g.radiusMeters = d.blindGap.radiusMeters;
+        g.radiusManual = !!d.blindGap.radiusManual;
+        if (d.blindGap.severeManual) g.severeMeters = d.blindGap.severeMeters;
+        g.severeManual = !!d.blindGap.severeManual;
+        g.gridStepMeters = d.blindGap.gridStepMeters;
+        if (Array.isArray(d.blindGap.checkKeys)) g.checkKeys = d.blindGap.checkKeys.slice();
+        if (global.recalcDerived) global.recalcDerived();   // 重算派生量（远点距离 / 盲区阈值若非手动）
+        syncCircleParams();
+        refreshSpeedComparison();
+    }
+
     /** 弹窗打开时，把「服务盲区识别」当前配置回填到输入框 / 勾选框（保证所见即所得） */
     function syncGapParams() {
-        const bg = global.BLIND_GAP || {};
+        const bg = (isSettingsModalOpen() && settingsDraft) ? settingsDraft.blindGap : (global.BLIND_GAP || {});
         const setVal = (id, v) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; };
         setVal('gapRadius', bg.radiusMeters != null ? bg.radiusMeters : 1000);
         setVal('gapSevere', bg.severeMeters != null ? bg.severeMeters : 1500);
@@ -389,24 +480,23 @@
         mask.addEventListener('change', e => {
             const t = e.target;
             if (t.id === 'gapRadius' || t.id === 'gapSevere' || t.id === 'gapGrid') {
-                if (global.setBlindGap) {
-                    global.setBlindGap({
-                        radius: document.getElementById('gapRadius').value,
-                        severe: document.getElementById('gapSevere').value,
-                        grid:   document.getElementById('gapGrid').value
-                    });
-                }
+                const cfg = {
+                    radius: document.getElementById('gapRadius').value,
+                    severe: document.getElementById('gapSevere').value,
+                    grid:   document.getElementById('gapGrid').value
+                };
+                if (isSettingsModalOpen() && settingsDraft) draftSetBlindGap(cfg);
+                else if (global.setBlindGap) global.setBlindGap(cfg);
                 return;
             }
             // 判定设施复选框：收集当前勾选项
             if (t.hasAttribute && t.hasAttribute('data-gapkey')) {
-                if (global.setBlindGap) {
-                    const keys = [];
-                    document.querySelectorAll('#circleSettingsMask [data-gapkey]').forEach(cb => {
-                        if (cb.checked) keys.push(cb.getAttribute('data-gapkey'));
-                    });
-                    global.setBlindGap({ keys: keys });
-                }
+                const keys = [];
+                document.querySelectorAll('#circleSettingsMask [data-gapkey]').forEach(cb => {
+                    if (cb.checked) keys.push(cb.getAttribute('data-gapkey'));
+                });
+                if (isSettingsModalOpen() && settingsDraft) draftSetBlindGap({ keys: keys });
+                else if (global.setBlindGap) global.setBlindGap({ keys: keys });
             }
         });
     }
@@ -440,11 +530,13 @@
         sel.__wmBound = true;
         sel.value = String(global.WALK_MINUTES || 15);
         sel.addEventListener('change', () => {
+            if (isSettingsModalOpen() && settingsDraft) {
+                draftSetWalkMinutes(sel.value);
+                syncModalControls();
+                return;   // 弹窗内：仅更新草稿与弹窗控件，不改页面、不重算
+            }
             if (global.applyWalkMinutes) global.applyWalkMinutes(sel.value);
             syncCircleParams();
-            // 弹窗编辑面板内：仅更新状态与 UI，不即时重算，等点「完成」统一分析
-            if (isSettingsModalOpen()) return;
-            // 已体检过：用当前地址按新时长重算（等时圈/POI/盲区/评分全部刷新）
             if (currentCenter) runAnalysis();
             refreshSpeedComparison();
         });
@@ -459,9 +551,13 @@
         if (typeSel && !typeSel.__atBound) {
             typeSel.__atBound = true;
             typeSel.addEventListener('change', () => {
+                if (isSettingsModalOpen() && settingsDraft) {
+                    draftSetActiveType(typeSel.value);
+                    syncModalControls();
+                    return;   // 弹窗内：仅更新草稿与弹窗控件
+                }
                 if (global.setActiveType) global.setActiveType(typeSel.value);
                 syncCircleParams();
-                if (isSettingsModalOpen()) return;   // 弹窗内仅更新状态/UI，点「完成」才分析
                 if (currentCenter) runAnalysis();
                 refreshSpeedComparison();
             });
@@ -471,9 +567,13 @@
             mainSpeed.addEventListener('change', () => {
                 let v = Math.round(Number(mainSpeed.value) || 80);
                 v = Math.max(20, Math.min(160, v));
+                if (isSettingsModalOpen() && settingsDraft) {
+                    draftSetTypeSpeed(effActiveType(), v);
+                    syncModalControls();
+                    return;   // 弹窗内：仅更新草稿与弹窗控件
+                }
                 if (global.setTypeSpeed) global.setTypeSpeed(global.ACTIVE_TYPE, v);
                 syncCircleParams();
-                if (isSettingsModalOpen()) return;   // 弹窗内仅更新状态/UI，点「完成」才分析
                 if (currentCenter) runAnalysis();
                 refreshSpeedComparison();
             });
@@ -492,13 +592,16 @@
         const open = () => {
             mask.classList.add('is-open');
             btn.setAttribute('aria-expanded', 'true');
-            syncGapParams();   // 打开即把当前盲区配置回填弹窗
+            openSettingsDraft();   // 开草稿（快照当前配置）
+            syncModalControls();   // 弹窗控件回填当前配置
+            syncGapParams();       // 打开即把当前盲区配置回填弹窗
             const first = mask.querySelector('select, input');
             if (first) setTimeout(() => first.focus(), 30);
         };
         const close = () => {
             mask.classList.remove('is-open');
             btn.setAttribute('aria-expanded', 'false');
+            closeSettingsDraft();   // 丢弃草稿（×/遮罩/ESC = 不改动页面配置）
         };
 
         if (!btn.__csBound) {
@@ -512,8 +615,9 @@
         if (doneBtn && !doneBtn.__csBound) {
             doneBtn.__csBound = true;
             doneBtn.addEventListener('click', () => {
+                // 「完成」：把草稿一次性应用到页面配置，再统一重算
+                if (settingsDraft) { commitSettingsDraft(); settingsDraft = null; }
                 close();
-                // 「完成」：统一应用弹窗内所有改动（等时圈 / POI / 盲区 / 评分 / 彩色圈）
                 if (currentCenter) runAnalysis();
             });
         }
@@ -530,16 +634,29 @@
         if (resetBtn && !resetBtn.__csBound) {
             resetBtn.__csBound = true;
             resetBtn.addEventListener('click', () => {
+                const def = { adult: 80, youth: 100, elder: 50, child: 60, wheel: 40 };
+                if (isSettingsModalOpen() && settingsDraft) {
+                    // 弹窗内：仅重置草稿与弹窗控件，点「完成」才应用
+                    settingsDraft.walkMinutes = 15;
+                    settingsDraft.activeType = 'adult';
+                    Object.keys(def).forEach(k => { settingsDraft.speeds[k] = def[k]; });
+                    settingsDraft.blindGap = {
+                        radiusMeters: 1000, severeMeters: 1500, gridStepMeters: 120,
+                        checkKeys: ['market', 'pharmacy', 'school'],
+                        radiusManual: false, severeManual: false
+                    };
+                    syncModalControls();
+                    syncGapParams();
+                    return;
+                }
                 if (global.applyWalkMinutes) global.applyWalkMinutes(15);
                 if (global.setActiveType) global.setActiveType('adult');
-                const def = { adult: 80, youth: 100, elder: 50, child: 60, wheel: 40 };
                 Object.keys(def).forEach(k => { if (global.setTypeSpeed) global.setTypeSpeed(k, def[k]); });
                 if (global.resetBlindGap) global.resetBlindGap();   // 盲区配置恢复默认
                 const cmp = document.getElementById('cmpCircles');
                 if (cmp) cmp.checked = false;
                 syncCircleParams();
                 syncGapParams();
-                if (isSettingsModalOpen()) return;   // 弹窗内仅重置+UI，点「完成」才分析
                 if (currentCenter) runAnalysis();
                 refreshSpeedComparison();
             });
@@ -562,10 +679,15 @@
             if (!row) return;
             if (e.target.closest('.bw-speed')) return;
             const key = row.getAttribute('data-key');
-            if (key === global.ACTIVE_TYPE) return;
+            const curActive = settingsDraft ? settingsDraft.activeType : global.ACTIVE_TYPE;
+            if (key === curActive) return;
+            if (isSettingsModalOpen() && settingsDraft) {
+                draftSetActiveType(key);
+                syncModalControls();
+                return;   // 弹窗内：仅更新草稿与弹窗控件
+            }
             if (global.setActiveType) global.setActiveType(key);
             syncCircleParams();
-            if (isSettingsModalOpen()) return;   // 弹窗内仅更新状态/UI，点「完成」才分析
             if (currentCenter) runAnalysis();
             refreshSpeedComparison();
         });
@@ -576,9 +698,13 @@
             if (!input) return;
             const key = input.getAttribute('data-key');
             const v = Math.round(Number(input.value) || 0);
+            if (isSettingsModalOpen() && settingsDraft) {
+                draftSetTypeSpeed(key, v);
+                syncModalControls();
+                return;   // 弹窗内：仅更新草稿与弹窗控件
+            }
             if (global.setTypeSpeed) global.setTypeSpeed(key, v);
             syncCircleParams();
-            if (isSettingsModalOpen()) return;   // 弹窗内仅更新状态/UI，点「完成」才分析
             if (currentCenter) runAnalysis();
             refreshSpeedComparison();
         });
@@ -2161,6 +2287,9 @@
     function earlyBindSettingsUI() {
         bindCircleSettingsModal();
         bindGapSettings();
+        bindWalkMinutes();         // 早期绑定：避免冷加载时 SDK 未就绪导致时长/速度行点不动
+        bindWalkTypes();
+        bindActiveTypeSelect();
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', earlyBindSettingsUI);
